@@ -12,6 +12,11 @@ RUN apt-get update && \
     ./Config -quick && \
     cd build && \
     make && make install && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /srv/services/conf/*
+
+ADD . /tmp/
+
+RUN cp -avr /tmp/conf /srv/services/ && \
+    rm -rf  /tmp/*
+
 CMD ["/srv/services/bin/services", "--nofork"]

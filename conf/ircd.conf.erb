@@ -1,0 +1,108 @@
+/*
+ * [REQUIRED] IRCd Config
+ *
+ * This section is used to set up Anope to connect to your IRC network.
+ * This section can be included multiple times, and Anope will attempt to
+ * connect to each server until it finally connects.
+ *
+ * Each uplink IRCd should have a corresponding configuration to allow Services
+ * to link to it.
+ */
+
+uplink
+{
+  <% ircd_uri = URI(ENV['IRCD_URL']) %>
+	ipv6 = no
+	ssl = no
+  password = "<%= ircd_uri.password %>"
+  host = "<%= ircd_uri.host %>"
+	port = <%= ircd_uri.port %>
+}
+
+/*
+ * [REQUIRED] Server Information
+ *
+ * This section contains information about the Services server.
+ */
+serverinfo
+{
+	name = "services.landline.io"
+	description = "LandLines Services"
+	#localhost = "nowhere."
+	pid = "data/services.pid"
+	motd = "conf/services.motd"
+}
+
+/*
+ * [REQUIRED] Protocol module
+ *
+ * This directive tells Anope which IRCd Protocol to speak when connecting.
+ * You MUST modify this to match the IRCd you run.
+ */
+module
+{
+	name = "inspircd20"
+	use_server_side_mlock = yes
+	use_server_side_topiclock = yes
+}
+
+/*
+ * [REQUIRED] Network Information
+ *
+ * This section contains information about the IRC network that Services will be
+ * connecting to.
+ */
+networkinfo
+{
+	networkname = "<%= ENV['NETWORK'] %>"
+    
+  # TODO: Verify Settings
+	nicklen = 31
+	userlen = 10
+	hostlen = 64
+	chanlen = 32
+	modelistsize = 100
+
+
+	vhost_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	allow_undotted_vhosts = false
+	disallow_start_or_end = ".-"
+}
+
+/*
+ * [REQUIRED] Services Options
+ *
+ * This section contains various options which determine how Services will operate.
+ */
+options
+{
+	casemap = "ascii"
+	seed = <%= ENV['ENCRYPTION_SEED'] %>
+	strictpasswords = yes
+	badpasslimit = 5
+	badpasstimeout = 1h
+	updatetimeout = 5m
+	expiretimeout = 30m
+	readtimeout = 5s
+	warningtimeout = 4h
+	timeoutcheck = 3s
+	hidestatso = yes
+
+	/*
+	 * A space-separated list of ulined servers on your network, it is assumed that
+	 * the servers in this list are allowed to set channel modes and Services will
+	 * not attempt to reverse their mode changes.
+	 *
+	 * WARNING: Do NOT put your normal IRC user servers in this directive.
+	 *
+	 * This directive is optional.
+	 */
+	#ulineservers = "stats.your.network"
+
+	retrywait = 60s
+	hideprivilegedcommands = yes
+	hideregisteredcommands = yes
+	regexengine = "regex/pcre"
+	languages = "en_US.UTF-8 de_DE.UTF-8 el_GR.UTF-8 es_ES.UTF-8 fr_FR.UTF-8 hu_HU.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pl_PL.UTF-8 pt_PT.UTF-8 ru_RU.UTF-8 tr_TR.UTF-8"
+  defaultlanguage = "en_US.UTF-8"
+}

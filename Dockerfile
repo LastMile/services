@@ -3,7 +3,7 @@ FROM debian:wheezy
 ADD https://github.com/anope/anope/releases/download/2.0.1/anope-2.0.1-source.tar.gz /tmp/
 
 RUN apt-get update && \
-    apt-get install -y build-essential cmake libssl-dev && \
+    apt-get install -y build-essential cmake libssl-dev ruby && \
     cd /tmp && \
     tar -xzf *.tar.gz && \
     cd anope-* && \

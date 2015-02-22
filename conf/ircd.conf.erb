@@ -14,7 +14,7 @@ uplink
 {
   <% ircd_uri = URI(ENV['IRCD_URL']) %>
 	ipv6 = no
-	ssl = no
+	ssl = yes
   password = "<%= ircd_uri.password %>"
   host = "<%= ircd_uri.host %>"
 	port = <%= ircd_uri.port %>
@@ -57,7 +57,7 @@ networkinfo
 {
 	networkname = "<%= ENV['NETWORK'] %>"
     
-  # TODO: Verify Settings
+  # TODO: Sync Settings With Server
 	nicklen = 31
 	userlen = 10
 	hostlen = 64

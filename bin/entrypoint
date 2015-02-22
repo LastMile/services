@@ -1,0 +1,10 @@
+#!/bin/bash -e
+#[ -z "$POSTGRES_URL" ] && [ -n "$POSTGRES_1_PORT_5432_TCP_ADDR" ] && export POSTGRES_URL="postgres://$POSTGRES_1_ENV_POSTGRESQL_USER:$POSTGRES_1_ENV_POSTGRESQL_PASS@$POSTGRES_1_PORT_5432_TCP_ADDR:$POSTGRES_1_PORT_5432_TCP_PORT/$POSTGRES_1_ENV_POSTGRESQL_DB"
+
+[ ! -f /srv/certs/key.pem ] || [ ! -f /srv/certs/cert.pem ] && \
+  openssl req -x509 -nodes -newkey rsa:1024 -subj "/C=US/ST=California/L=San Francisco/O=Assembly Made/OU=Landline/CN=landline.io" -keyout /srv/certs/key.pem -out /srv/certs/cert.pem
+
+ln -s /srv/certs/key.pem /srv/services/conf/key.pem
+ln -s /srv/certs/cert.pem /srv/services/conf/cert.pem
+
+exec "$@"

@@ -1,6 +1,6 @@
 #!/bin/bash -e
 [ ! -f /srv/certs/key.pem ] || [ ! -f /srv/certs/cert.pem ] && \
-  openssl req -x509 -nodes -newkey rsa:1024 -subj "/C=US/ST=California/L=San Francisco/O=Assembly Made/OU=Landline/CN=landline.io" -keyout /srv/certs/key.pem -out /srv/certs/cert.pem
+  openssl req -x509 -nodes -newkey rsa:1024 -subj "/C=US/ST=California/L=San Francisco/O=LastMile/OU=LastMile/CN=lastmile.io" -keyout /srv/certs/key.pem -out /srv/certs/cert.pem
 
 ln -s /srv/certs/key.pem /srv/services/conf/key.pem
 ln -s /srv/certs/cert.pem /srv/services/conf/cert.pem

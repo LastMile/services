@@ -1,4 +1,7 @@
-<% require 'uri' %>
+<%
+  require 'uri'
+  ircd_uri = URI(ENV['IRCD_URL'])
+%>
 /*
  * [REQUIRED] IRCd Config
  *
@@ -12,7 +15,6 @@
 
 uplink
 {
-  <% ircd_uri = URI(ENV['IRCD_URL']) %>
 	ipv6 = no
 	ssl = yes
   password = "<%= ircd_uri.password %>"

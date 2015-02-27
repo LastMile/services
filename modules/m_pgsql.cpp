@@ -436,7 +436,8 @@ Query PgSQLService::GetTables(const Anope::string &prefix)
 
 void PgSQLService::Connect()
 {
-	this->sql = PQsetdbLogin(this->server.c_str(), "5432", "connect_timeout = '5'", NULL, this->database.c_str(), this->user.c_str(), this->password.c_str());
+  // "-c connect_timeout=5"
+	this->sql = PQsetdbLogin(this->server.c_str(), "5432", NULL, NULL, this->database.c_str(), this->user.c_str(), this->password.c_str());
 
 	//const unsigned int timeout = 1;
 

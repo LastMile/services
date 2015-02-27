@@ -1,3 +1,8 @@
+<%
+  require 'uri'
+  database_uri = URI(ENV['POSTGRES_URL'])
+%>
+
 module { name = "help" }
 
 /*
@@ -386,6 +391,42 @@ module
   name = "m_ssl_gnutls"
   cert = "/srv/services/conf/cert.pem"
   key = "/srv/services/conf/key.pem"
+}
+
+/*
+ * db_sql_live
+ *
+ * db_sql_live module allows saving and loading databases using one of the SQL engines.
+ * This module reads and writes to SQL in real time. Changes to the SQL tables
+ * will be immediately reflected into Anope. This module should not be loaded
+ * in conjunction with db_sql.
+ *
+ */
+module
+{
+	name = "db_sql_live"
+	engine = "pgsql/main"
+	import = false
+}
+
+/*
+ * m_pgsql
+ *
+ * This module allows other modules to use Postgres.
+ */
+module
+{
+  name = "m_pgsql"
+    
+  pgsql
+  {
+    name = "pgsql/main"
+    username = "<%= database_uri.user %>"
+    password = "<%= database_uri.password %>"
+    server = "<%= database_uri.host %>"
+    port = <%= database_uri.port %>
+    database = "<%= database_uri.path[1..-1] %>"
+  }
 }
 
 /*

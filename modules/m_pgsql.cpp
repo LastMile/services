@@ -352,7 +352,7 @@ std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const D
 	{
 		Log(LOG_DEBUG) << "m_pgsql: Fetching columns for " << table;
 
-		Result columns = this->RunQuery("SHOW COLUMNS FROM `" + table + "`");
+		Result columns = this->RunQuery("SHOW COLUMNS FROM \"" + table + "\"");
 		for (int i = 0; i < columns.Rows(); ++i)
 		{
 			const Anope::string &column = columns.Get(i, "Field");
@@ -364,19 +364,19 @@ std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const D
 
 	if (known_cols.empty())
 	{
-		Anope::string query_text = "CREATE TABLE `" + table + "` (`id` int(10) unsigned NOT NULL AUTO_INCREMENT,"
-			" `timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
+		Anope::string query_text = "CREATE TABLE \"" + table + "\" (\"id\" int(10) unsigned NOT NULL AUTO_INCREMENT,"
+			" \"timestamp\" timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
 		for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
 		{
 			known_cols.insert(it->first);
 
-			query_text += ", `" + it->first + "` ";
+			query_text += ", \"" + it->first + "\" ";
 			if (data.GetType(it->first) == Serialize::Data::DT_INT)
 				query_text += "int(11)";
 			else
 				query_text += "text";
 		}
-		query_text += ", PRIMARY KEY (`id`), KEY `timestamp_idx` (`timestamp`))";
+		query_text += ", PRIMARY KEY (\"id\"), KEY \"timestamp_idx\" (\"timestamp\"))";
 		queries.push_back(query_text);
 	}
 	else
@@ -387,7 +387,7 @@ std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const D
 
 			known_cols.insert(it->first);
 
-			Anope::string query_text = "ALTER TABLE `" + table + "` ADD `" + it->first + "` ";
+			Anope::string query_text = "ALTER TABLE \"" + table + "\" ADD \"" + it->first + "\" ";
 			if (data.GetType(it->first) == Serialize::Data::DT_INT)
 				query_text += "int(11)";
 			else
@@ -407,15 +407,15 @@ Query PgSQLService::BuildInsert(const Anope::string &table, unsigned int id, Dat
 		if (*it != "id" && *it != "timestamp" && data.data.count(*it) == 0)
 			data[*it] << "";
 
-	Anope::string query_text = "INSERT INTO `" + table + "` (`id`";
+	Anope::string query_text = "INSERT INTO \"" + table + "\" (\"id\"";
 	for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-		query_text += ",`" + it->first + "`";
+		query_text += ",\"" + it->first + "\"";
 	query_text += ") VALUES (" + stringify(id);
 	for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
 		query_text += ",@" + it->first + "@";
 	query_text += ") ON DUPLICATE KEY UPDATE ";
 	for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-		query_text += "`" + it->first + "`=VALUES(`" + it->first + "`),";
+		query_text += "\"" + it->first + "\"=VALUES(\"" + it->first + "\"),";
 	query_text.erase(query_text.end() - 1);
 
 	Query query(query_text);

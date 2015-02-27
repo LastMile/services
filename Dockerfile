@@ -10,6 +10,7 @@ RUN apt-get update && \
     cd anope-* && \
     mv modules/extra/m_ssl_gnutls.cpp modules/ && \
     mv /tmp/modules/m_pgsql.cpp modules/ && \
+    mv /tmp/modules/db_sql_live.cpp modules/database/ && \
     printf "INSTDIR=\"/srv/services\"\nRUNGROUP=\"\"\nUMASK=077\nDEBUG=\"no\"\nUSE_RUN_CC_PL=\"no\"\nUSE_PCH=\"no\"\nEXTRA_INCLUDE_DIRS=\"/usr/include/postgresql\"\nEXTRA_LIB_DIRS=\"\"\nEXTRA_CONFIG_ARGS=\"\"" > config.cache && \
     ./Config -quick && \
     cd build && \

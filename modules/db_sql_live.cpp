@@ -13,39 +13,39 @@ using namespace SQL;
 class DBSQLLive : public Module, public Pipe
 {
   std::set<Serializable*> m_updatedItems;
-	Anope::string m_prefix;
-  
-	ServiceReference<Provider> m_service;
-	time_t m_lastwarn;
-	bool m_readyOnly;
-	bool m_init;
-	
+  Anope::string m_prefix;
 
-	bool CheckSQL();
-	bool CheckInit();
+  ServiceReference<Provider> m_hDatabaseService;
+  bool m_isDatabaseLoaded;
 
-	void RunQuery(const Query &query);
-	Result RunQueryResult(const Query &query);
+  time_t m_lastwarn;
+  bool m_readyOnly;
+
+  bool CheckSQL();
+  bool isDatabaseReady();
+
+  void RunQuery(const Query& _query);
+  Result RunQueryResult(const Query& _query);
 
  public:
-	DBSQLLive(const Anope::string &modname, const Anope::string &creator);
+  DBSQLLive(const Anope::string& _modname, const Anope::string& _creator);
 
-	EventReturn OnLoadDatabase() anope_override;
-	void OnShutdown() anope_override;
-	void OnRestart() anope_override;
-	void OnReload(Configuration::Conf *conf) anope_override;
+  EventReturn OnLoadDatabase() anope_override;
+  void OnShutdown() anope_override;
+  void OnRestart() anope_override;
+  void OnReload(Configuration::Conf* _pConfig) anope_override;
   void OnNotify() anope_override;
 
-	void OnSerializableConstruct(Serializable *obj) anope_override;
-	void OnSerializableDestruct(Serializable *obj) anope_override;
-	void OnSerializeCheck(Serialize::Type *obj) anope_override;
-	void OnSerializableUpdate(Serializable *obj) anope_override;
+  void OnSerializableConstruct(Serializable* _pObject) anope_override;
+  void OnSerializableDestruct(Serializable* _pObject) anope_override;
+  void OnSerializeCheck(Serialize::Type* _pObject) anope_override;
+  void OnSerializableUpdate(Serializable* _pObject) anope_override;
 };
 
 //------------------------------------------------------------------------------
 bool DBSQLLive::CheckSQL()
 {
-  if (m_service)
+  if (m_hDatabaseService)
   {
     if (Anope::ReadOnly && m_readyOnly)
     {
@@ -69,42 +69,43 @@ bool DBSQLLive::CheckSQL()
 }
 
 //------------------------------------------------------------------------------
-bool DBSQLLive::CheckInit()
+bool DBSQLLive::isDatabaseReady()
 {
-  return m_init && m_service;
+  return m_isDatabaseLoaded && m_hDatabaseService;
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::RunQuery(const Query &query)
+void DBSQLLive::RunQuery(const Query& _query)
 {
-  /* Can this be threaded? */
-  this->RunQueryResult(query);
+  // TODO: Can this be threaded?
+  this->RunQueryResult(_query);
 }
 
 //------------------------------------------------------------------------------
-Result DBSQLLive::RunQueryResult(const Query &query)
+Result DBSQLLive::RunQueryResult(const Query& _query)
 {
-  if (this->CheckSQL())
-  {
-    Result res = m_service->RunQuery(query);
-    if (!res.GetError().empty())
-      Log(LOG_DEBUG) << "SQL-live got error " << res.GetError() << " for " + res.finished_query;
-    else
-      Log(LOG_DEBUG) << "SQL-live got " << res.Rows() << " rows for " << res.finished_query;
-    return res;
-  }
-  throw SQL::Exception("No SQL!");
+  if (!this->CheckSQL())
+    throw SQL::Exception("No SQL!");
+
+  Result result = m_hDatabaseService->RunQuery(_query);
+
+  if (!result.GetError().empty())
+    Log(LOG_DEBUG) << "SQL-live got error " << result.GetError() << " for " + result.finished_query;
+  else
+    Log(LOG_DEBUG) << "SQL-live got " << result.Rows() << " rows for " << result.finished_query;
+
+  return result;
 }
 
 //------------------------------------------------------------------------------
-DBSQLLive::DBSQLLive(const Anope::string& modname, const Anope::string &creator) 
-  : Module(modname, creator, DATABASE | VENDOR), m_service("", "")
+DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creator)
+  : Module(_modname, _creator, DATABASE | VENDOR),
+  m_prefix(""),
+  m_hDatabaseService("", ""),
+  m_isDatabaseLoaded(false),
+  m_lastwarn(NULL),
+  m_readyOnly(false)
 {
-  m_lastwarn = 0;
-  m_readyOnly = false;
-  m_init = false;
-
-
   if (ModuleManager::FindFirstOf(DATABASE) != this)
     throw ModuleException("If db_sql_live is loaded it must be the first database module loaded.");
 }
@@ -112,38 +113,40 @@ DBSQLLive::DBSQLLive(const Anope::string& modname, const Anope::string &creator)
 //------------------------------------------------------------------------------
 void DBSQLLive::OnNotify() anope_override
 {
-  if (!this->CheckInit())
+  if (!this->isDatabaseReady())
     return;
 
-  for (std::set<Serializable *>::iterator it = m_updatedItems.begin(), it_end = m_updatedItems.end(); it != it_end; ++it)
+  std::set<Serializable*>::iterator itemsIterator;
+  for (itemsIterator = m_updatedItems.begin(); itemsIterator != m_updatedItems.end(); ++itemsIterator)
   {
-    Serializable *obj = *it;
+    Serializable* pObject = *itemsIterator;
+    Data data;
 
-    if (obj && m_service)
+    pObject->Serialize(data);
+
+    if (pObject->IsCached(data))
+      continue;
+
+    pObject->UpdateCache(data);
+
+    Serialize::Type *s_type = pObject->GetSerializableType();
+
+    if (!s_type)
+      continue;
+
+    // TODO: Move the concerns of prefix to the database service
+    std::vector<Query> create = m_hDatabaseService->CreateTable(m_prefix + s_type->GetName(), data);
+
+    for (unsigned int i = 0; i < create.size(); ++i)
+      this->RunQueryResult(create[i]);
+
+    Result res = this->RunQueryResult(m_hDatabaseService->BuildInsert(m_prefix + s_type->GetName(), pObject->id, data));
+
+    if (res.GetID() && pObject->id != res.GetID())
     {
-      Data data;
-      obj->Serialize(data);
-
-      if (obj->IsCached(data))
-        continue;
-
-      obj->UpdateCache(data);
-
-      Serialize::Type *s_type = obj->GetSerializableType();
-      if (!s_type)
-        continue;
-
-      std::vector<Query> create = m_service->CreateTable(m_prefix + s_type->GetName(), data);
-      for (unsigned i = 0; i < create.size(); ++i)
-        this->RunQueryResult(create[i]);
-
-      Result res = this->RunQueryResult(m_service->BuildInsert(m_prefix + s_type->GetName(), obj->id, data));
-      if (res.GetID() && obj->id != res.GetID())
-      {
-        /* In this case obj is new, so place it into the object map */
-        obj->id = res.GetID();
-        s_type->objects[obj->id] = obj;
-      }
+      /* In this case object is new, so place it into the object map */
+      pObject->id = res.GetID();
+      s_type->objects[pObject->id] = pObject;
     }
   }
 
@@ -153,64 +156,67 @@ void DBSQLLive::OnNotify() anope_override
 //------------------------------------------------------------------------------
 EventReturn DBSQLLive::OnLoadDatabase() anope_override
 {
-  m_init = true;
+  m_isDatabaseLoaded = true;
   return EVENT_STOP;
 }
 
 //------------------------------------------------------------------------------
 void DBSQLLive::OnShutdown() anope_override
 {
-  m_init = false;
+  m_isDatabaseLoaded = false;
 }
 
 //------------------------------------------------------------------------------
 void DBSQLLive::OnRestart() anope_override
 {
-  m_init = false;
+  m_isDatabaseLoaded = false;
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnReload(Configuration::Conf *conf) anope_override
+void DBSQLLive::OnReload(Configuration::Conf* _pConfig) anope_override
 {
-  Configuration::Block *block = conf->GetModule(this);
-  m_service = ServiceReference<Provider>("SQL::Provider", block->Get<const Anope::string>("engine"));
-  m_prefix = block->Get<const Anope::string>("prefix", "anope_db_");
+  Configuration::Block* pBlock = _pConfig->GetModule(this);
+  m_hDatabaseService = ServiceReference<Provider>("SQL::Provider", pBlock->Get<const Anope::string>("engine"));
+  m_prefix = pBlock->Get<const Anope::string>("prefix", "anope_db_"); // TODO: move to db service
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableConstruct(Serializable *obj) anope_override
+void DBSQLLive::OnSerializableConstruct(Serializable* _pObject) anope_override
 {
-  if (!this->CheckInit())
+  if (!this->isDatabaseReady())
     return;
-  obj->UpdateTS();
-  m_updatedItems.insert(obj);
+
+  _pObject->UpdateTS();
+  m_updatedItems.insert(_pObject);
   this->Notify();
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableDestruct(Serializable *obj) anope_override
+void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
 {
-  if (!this->CheckInit())	
+  if (!this->isDatabaseReady())
     return;
-  Serialize::Type *s_type = obj->GetSerializableType();
+
+  Serialize::Type *s_type = _pObject->GetSerializableType();
   if (s_type)
   {
-    if (obj->id > 0)
-      this->RunQuery("DELETE FROM \"" + m_prefix + s_type->GetName() + "\" WHERE \"id\" = " + stringify(obj->id));
-    s_type->objects.erase(obj->id);
+    if (_pObject->id > 0)
+      this->RunQuery("DELETE FROM \"" + m_prefix + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
+
+    s_type->objects.erase(_pObject->id);
   }
-  m_updatedItems.erase(obj);
+  m_updatedItems.erase(_pObject);
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializeCheck(Serialize::Type *obj) anope_override
+void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 {
-  if (!this->CheckInit() || obj->GetTimestamp() == Anope::CurTime)
+  if (!this->isDatabaseReady() || _pObject->GetTimestamp() == Anope::CurTime)
     return;
 
-  Query query("SELECT * FROM \"" + m_prefix + obj->GetName() + "\" WHERE (\"timestamp\" >= " + m_service->FromUnixtime(obj->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
+  Query query("SELECT * FROM \"" + m_prefix + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
-  obj->UpdateTimestamp();
+  _pObject->UpdateTimestamp();
 
   Result res = this->RunQueryResult(query);
 
@@ -226,15 +232,15 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type *obj) anope_override
     }
     catch (const ConvertException &)
     {
-      Log(LOG_DEBUG) << "Unable to convert id from " << obj->GetName();
+      Log(LOG_DEBUG) << "Unable to convert id from " << _pObject->GetName();
       continue;
     }
 
     if (res.Get(i, "timestamp").empty())
     {
       clear_null = true;
-      std::map<uint64_t, Serializable *>::iterator it = obj->objects.find(id);
-      if (it != obj->objects.end())
+      std::map<uint64_t, Serializable *>::iterator it = _pObject->objects.find(id);
+      if (it != _pObject->objects.end())
         delete it->second; // This also removes this object from the map
     }
     else
@@ -245,18 +251,18 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type *obj) anope_override
         data[it->first] << it->second;
 
       Serializable *s = NULL;
-      std::map<uint64_t, Serializable *>::iterator it = obj->objects.find(id);
-      if (it != obj->objects.end())
+      std::map<uint64_t, Serializable *>::iterator it = _pObject->objects.find(id);
+      if (it != _pObject->objects.end())
         s = it->second;
 
-      Serializable *new_s = obj->Unserialize(s, data);
+      Serializable *new_s = _pObject->Unserialize(s, data);
       if (new_s)
       {
         // If s == new_s then s->id == new_s->id
         if (s != new_s)
         {
           new_s->id = id;
-          obj->objects[id] = new_s;
+          _pObject->objects[id] = new_s;
 
           /* The Unserialize operation is destructive so rebuild the data for UpdateCache.
            * Also the old data may contain columns that we don't use, so we reserialize the
@@ -271,7 +277,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type *obj) anope_override
       else
       {
         if (!s)
-          this->RunQuery("UPDATE \"" + m_prefix + obj->GetName() + "\" SET \"timestamp\" = " + m_service->FromUnixtime(obj->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
+          this->RunQuery("UPDATE \"" + m_prefix + _pObject->GetName() + "\" SET \"timestamp\" = " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
         else
           delete s;
       }
@@ -280,18 +286,19 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type *obj) anope_override
 
   if (clear_null)
   {
-    query = "DELETE FROM \"" + m_prefix + obj->GetName() + "\" WHERE \"timestamp\" IS NULL";
+    query = "DELETE FROM \"" + m_prefix + _pObject->GetName() + "\" WHERE \"timestamp\" IS NULL";
     this->RunQuery(query);
   }
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableUpdate(Serializable *obj) anope_override
+void DBSQLLive::OnSerializableUpdate(Serializable* _pObject) anope_override
 {
-  if (!this->CheckInit() || obj->IsTSCached())
+  if (!this->isDatabaseReady() || _pObject->IsTSCached())
     return;
-  obj->UpdateTS();
-  m_updatedItems.insert(obj);
+
+  _pObject->UpdateTS();
+  m_updatedItems.insert(_pObject);
   this->Notify();
 }
 

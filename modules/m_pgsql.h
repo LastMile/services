@@ -67,13 +67,11 @@ struct QueryResult
 //------------------------------------------------------------------------------
 class PgSQLResult : public Result
 {
-  PGresult *res;
+  PGresult* m_pResult;
 
  public:
-  PgSQLResult(unsigned int i, const Query &q, const Anope::string &fq, PGresult *r);
-
-  PgSQLResult(const Query &q, const Anope::string &fq, const Anope::string &err);
-
+  PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::string& _renderedQuery, PGresult* _pResult);
+  PgSQLResult(const Query& _rawQuery, const Anope::string& _renderedQuery, const Anope::string& _error);
   ~PgSQLResult();
 };
 

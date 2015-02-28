@@ -21,23 +21,25 @@ static ModuleSQL *me; // TODO: Made proper singalton
 //------------------------------------------------------------------------------
 // PgSQLResult
 //------------------------------------------------------------------------------
-PgSQLResult::PgSQLResult(unsigned int i, const Query &q, const Anope::string &fq, PGresult *r) : Result(i, q, fq), res(r)
+PgSQLResult::PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::string& _renderedQuery, PGresult* _pResult)
+  : Result(_id, _rawQuery, _renderedQuery),
+  m_pResult(_pResult)
 {
-  int num_fields = res ? PQnfields(res) : 0;
+  int num_fields = m_pResult ? PQnfields(m_pResult) : 0;
 
   /* It is not thread safe to log anything here using Log(this->owner) now :( */
 
-  if (!num_fields)
+  if (num_fields == 0)
     return;
 
-  for (int row_num = 0; row_num < PQntuples(res); row_num++)
+  for (int row_num = 0; row_num < PQntuples(m_pResult); row_num++)
   {
       std::map<Anope::string, Anope::string> items;
 
       for (int field_count = 0; field_count < num_fields; ++field_count)
       {
-          Anope::string column = (PQfname(res,field_count) ? PQfname(res,field_count) : "");
-          Anope::string data = Anope::string(PQgetvalue(res,row_num,field_count),PQgetlength(res,row_num,field_count));
+          Anope::string column = (PQfname(m_pResult, field_count) ? PQfname(m_pResult, field_count) : "");
+          Anope::string data = Anope::string(PQgetvalue(m_pResult, row_num, field_count), PQgetlength(m_pResult, row_num, field_count));
 
           items[column] = data;
       }
@@ -47,15 +49,17 @@ PgSQLResult::PgSQLResult(unsigned int i, const Query &q, const Anope::string &fq
 }
 
 //------------------------------------------------------------------------------
-PgSQLResult::PgSQLResult(const Query &q, const Anope::string &fq, const Anope::string &err) : Result(0, q, fq, err), res(NULL)
+PgSQLResult::PgSQLResult(const Query& _rawQuery, const Anope::string& _renderedQuery, const Anope::string& _error)
+  : Result(0, _rawQuery, _renderedQuery, _error),
+  m_pResult(nullptr)
 {
 }
 
 //------------------------------------------------------------------------------
 PgSQLResult::~PgSQLResult()
 {
-  if (this->res)
-    PQclear(this->res);
+  if (this->m_pResult)
+    PQclear(this->m_pResult);
 }
 
 //------------------------------------------------------------------------------

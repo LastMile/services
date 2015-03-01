@@ -16,7 +16,7 @@
  * to be sent back to the modules requesting the query
  */
 
-static ModuleSQL *me; // TODO: Made proper singalton
+static PgSQLModule *me; // TODO: Made proper singalton
 
 //------------------------------------------------------------------------------
 // PgSQLResult
@@ -63,9 +63,10 @@ PgSQLResult::~PgSQLResult()
 }
 
 //------------------------------------------------------------------------------
-// ModuleSQL
+// PgSQLModule
 //------------------------------------------------------------------------------
-ModuleSQL::ModuleSQL(const Anope::string &modname, const Anope::string &creator) : Module(modname, creator, EXTRA | VENDOR)
+PgSQLModule::PgSQLModule(const Anope::string& _name, const Anope::string& _creator)
+  : Module(_name, _creator, EXTRA | VENDOR)
 {
   me = this;
 
@@ -74,24 +75,26 @@ ModuleSQL::ModuleSQL(const Anope::string &modname, const Anope::string &creator)
 }
 
 //------------------------------------------------------------------------------
-ModuleSQL::~ModuleSQL()
+PgSQLModule::~PgSQLModule()
 {
-  for (std::map<Anope::string, PgSQLService *>::iterator it = this->PgSQLServices.begin(); it != this->PgSQLServices.end(); ++it)
+  for (std::map<Anope::string, PgSQLService*>::iterator it = this->m_databases.begin(); it != this->m_databases.end(); ++it)
     delete it->second;
-  PgSQLServices.clear();
+
+  m_databases.clear();
 
   DThread->SetExitState();
   DThread->Wakeup();
   DThread->Join();
+
   delete DThread;
 }
 
 //------------------------------------------------------------------------------
-void ModuleSQL::OnReload(Configuration::Conf *conf) anope_override
+void PgSQLModule::OnReload(Configuration::Conf* _pConfig) anope_override
 {
-  Configuration::Block *config = conf->GetModule(this);
+  Configuration::Block* pBlock = _pConfig->GetModule(this);
 
-  for (std::map<Anope::string, PgSQLService *>::iterator it = this->PgSQLServices.begin(); it != this->PgSQLServices.end();)
+  for (std::map<Anope::string, PgSQLService *>::iterator it = this->m_databases.begin(); it != this->m_databases.end();)
   {
     const Anope::string &cname = it->first;
     PgSQLService *s = it->second;
@@ -99,25 +102,25 @@ void ModuleSQL::OnReload(Configuration::Conf *conf) anope_override
 
     ++it;
 
-    for (i = 0; i < config->CountBlock("pgsql"); ++i)
-      if (config->GetBlock("pgsql", i)->Get<const Anope::string>("name", "pgsql/main") == cname)
+    for (i = 0; i < pBlock->CountBlock("pgsql"); ++i)
+      if (pBlock->GetBlock("pgsql", i)->Get<const Anope::string>("name", "pgsql/main") == cname)
         break;
 
-    if (i == config->CountBlock("pgsql"))
+    if (i == pBlock->CountBlock("pgsql"))
     {
       Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << cname;
 
       delete s;
-      this->PgSQLServices.erase(cname);
+      this->m_databases.erase(cname);
     }
   }
 
-  for (int i = 0; i < config->CountBlock("pgsql"); ++i)
+  for (int i = 0; i < pBlock->CountBlock("pgsql"); ++i)
   {
-    Configuration::Block *block = config->GetBlock("pgsql", i);
+    Configuration::Block *block = pBlock->GetBlock("pgsql", i);
     const Anope::string &connname = block->Get<const Anope::string>("name", "pgsql/main");
 
-    if (this->PgSQLServices.find(connname) == this->PgSQLServices.end())
+    if (this->m_databases.find(connname) == this->m_databases.end())
     {
       const Anope::string &database = block->Get<const Anope::string>("database", "anope");
       const Anope::string &server = block->Get<const Anope::string>("server", "127.0.0.1");
@@ -128,7 +131,7 @@ void ModuleSQL::OnReload(Configuration::Conf *conf) anope_override
       try
       {
         PgSQLService *ss = new PgSQLService(this, connname, database, server, user, password, port);
-        this->PgSQLServices.insert(std::make_pair(connname, ss));
+        this->m_databases.insert(std::make_pair(connname, ss));
 
         Log(LOG_NORMAL, "pgsql") << "PgSQL: Successfully connected to server " << connname << " (" << server << ")";
       }
@@ -141,7 +144,7 @@ void ModuleSQL::OnReload(Configuration::Conf *conf) anope_override
 }
 
 //------------------------------------------------------------------------------
-void ModuleSQL::OnModuleUnload(User *, Module *m) anope_override
+void PgSQLModule::OnModuleUnload(User* _pUser, Module* _pModule) anope_override
 {
   this->DThread->Lock();
 
@@ -149,7 +152,7 @@ void ModuleSQL::OnModuleUnload(User *, Module *m) anope_override
   {
     QueryRequest &r = this->QueryRequests[i - 1];
 
-    if (r.sqlinterface && r.sqlinterface->owner == m)
+    if (r.sqlinterface && r.sqlinterface->owner == _pModule)
     {
       if (i == 1)
       {
@@ -167,7 +170,7 @@ void ModuleSQL::OnModuleUnload(User *, Module *m) anope_override
 }
 
 //------------------------------------------------------------------------------
-void ModuleSQL::OnNotify() anope_override
+void PgSQLModule::OnNotify() anope_override
 {
   this->DThread->Lock();
   std::deque<QueryResult> finishedRequests = this->FinishedRequests;
@@ -446,4 +449,4 @@ Anope::string PgSQLService::FromUnixtime(time_t t)
 }
 
 //------------------------------------------------------------------------------
-//MODULE_INIT(ModuleSQL)
+//MODULE_INIT(PgSQLModule)

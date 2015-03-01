@@ -29,7 +29,7 @@ struct QueryRequest;
 struct QueryResult;
 
 class DispatcherThread;
-class ModuleSQL;
+class PgSQLModule;
 
 class PgSQLResult;
 class PgSQLService;
@@ -76,28 +76,21 @@ class PgSQLResult : public Result
 };
 
 //------------------------------------------------------------------------------
-// ModuleSQL
+// PgSQLModule
 //------------------------------------------------------------------------------
-class ModuleSQL : public Module, public Pipe
+class PgSQLModule : public Module, public Pipe
 {
-  /* SQL connections */
-  std::map<Anope::string, PgSQLService *> PgSQLServices;
+  std::map<Anope::string, PgSQLService*> m_databases;
  public:
-  /* Pending query requests */
-  std::deque<QueryRequest> QueryRequests;
-  /* Pending finished requests with results */
-  std::deque<QueryResult> FinishedRequests;
-  /* The thread used to execute queries */
-  DispatcherThread *DThread;
+  std::deque<QueryRequest> QueryRequests;   // Pending query requests
+  std::deque<QueryResult> FinishedRequests; // Pending finished requests with results
+  DispatcherThread *DThread;                // The thread used to execute queries
 
-  ModuleSQL(const Anope::string &modname, const Anope::string &creator);
+  PgSQLModule(const Anope::string& _name, const Anope::string& _creator);
+  ~PgSQLModule();
 
-  ~ModuleSQL();
-
-  void OnReload(Configuration::Conf *conf) anope_override;
-
-  void OnModuleUnload(User *, Module *m) anope_override;
-
+  void OnReload(Configuration::Conf* _pConfig) anope_override;
+  void OnModuleUnload(User* _pUser, Module* _pModule) anope_override;
   void OnNotify() anope_override;
 };
 
@@ -163,4 +156,4 @@ class PgSQLService : public Provider
 };
 
 //------------------------------------------------------------------------------
-MODULE_INIT(ModuleSQL)
+MODULE_INIT(PgSQLModule)

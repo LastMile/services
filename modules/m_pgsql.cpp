@@ -194,7 +194,20 @@ void PgSQLModule::OnNotify() anope_override
 //------------------------------------------------------------------------------
 // DispatcherThread
 //------------------------------------------------------------------------------
-void DispatcherThread::Run()
+DispatcherThread::DispatcherThread()
+  : Thread()
+{
+
+}
+
+//------------------------------------------------------------------------------
+DispatcherThread::~DispatcherThread()
+{
+
+}
+
+//------------------------------------------------------------------------------
+void DispatcherThread::Run() anope_override
 {
   this->Lock();
 
@@ -212,6 +225,7 @@ void DispatcherThread::Run()
       {
         if (r.sqlinterface)
           me->FinishedRequests.push_back(QueryResult(r.sqlinterface, sresult));
+
         me->QueryRequests.pop_front();
       }
     }
@@ -229,8 +243,14 @@ void DispatcherThread::Run()
 //------------------------------------------------------------------------------
 // PgSQLService
 //------------------------------------------------------------------------------
-PgSQLService::PgSQLService(Module *o, const Anope::string &n, const Anope::string &d, const Anope::string &s, const Anope::string &u, const Anope::string &p, int po)
-: Provider(o, n), database(d), server(s), user(u), password(p), port(po), sql(NULL)
+PgSQLService::PgSQLService(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)
+  : Provider(_pO, _name),
+  m_username(_username),
+  m_password(_password),
+  m_hostname(_hostname),
+  m_port(_port),
+  m_database(_database),
+  m_pConnection(nullptr)
 {
   Connect();
 }
@@ -240,8 +260,8 @@ PgSQLService::~PgSQLService()
 {
   me->DThread->Lock();
   this->Lock.Lock();
-  PQfinish(this->sql);
-  this->sql = NULL;
+  PQfinish(m_pConnection);
+  m_pConnection = NULL;
 
   for (unsigned i = me->QueryRequests.size(); i > 0; --i)
   {
@@ -259,43 +279,44 @@ PgSQLService::~PgSQLService()
 }
 
 //------------------------------------------------------------------------------
-void PgSQLService::Run(Interface *i, const Query &query)
+void PgSQLService::Run(Interface* _pInterface, const Query& _query)
 {
   me->DThread->Lock();
-  me->QueryRequests.push_back(QueryRequest(this, i, query));
+  me->QueryRequests.push_back(QueryRequest(this, _pInterface, _query));
   me->DThread->Unlock();
   me->DThread->Wakeup();
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLService::RunQuery(const Query &query)
+Result PgSQLService::RunQuery(const Query& _rawQuery)
 {
-  this->Lock.Lock();
-    PGresult *res;
-  Anope::string real_query = this->BuildQuery(query);
+  PGresult* pResult;
 
-  if (this->CheckConnection() && !(res = PQexec(this->sql, real_query.c_str())))
+  this->Lock.Lock();
+
+  Anope::string renderedQuery = this->BuildQuery(_rawQuery);
+
+  if (this->CheckConnection() && !(pResult = PQexec(m_pConnection, renderedQuery.c_str())))
   {
     // TODO: emulate this somehow?
-    //unsigned int id = pgsql_insert_id(this->sql);
+    //unsigned int id = pgsql_insert_id(m_pConnection);
     int id = 42;
 
     this->Lock.Unlock();
-    return PgSQLResult(id, query, real_query, res);
+    return PgSQLResult(id, _rawQuery, renderedQuery, pResult);
   }
-  else
-  {
-    Anope::string error = PQerrorMessage(this->sql);
-    this->Lock.Unlock();
-    return PgSQLResult(query, real_query, error);
-  }
+
+  Anope::string error = PQerrorMessage(m_pConnection);
+
+  this->Lock.Unlock();
+  return PgSQLResult(_rawQuery, renderedQuery, error);
 }
 
 //------------------------------------------------------------------------------
 std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const Data &data)
 {
   std::vector<Query> queries;
-  std::set<Anope::string> &known_cols = this->active_schema[table];
+  std::set<Anope::string> &known_cols = m_activeSchema[table];
 
   if (known_cols.empty())
   {
@@ -352,7 +373,7 @@ std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const D
 Query PgSQLService::BuildInsert(const Anope::string &table, unsigned int id, Data &data)
 {
   /* Empty columns not present in the data set */
-  const std::set<Anope::string> &known_cols = this->active_schema[table];
+  const std::set<Anope::string> &known_cols = m_activeSchema[table];
   for (std::set<Anope::string>::iterator it = known_cols.begin(), it_end = known_cols.end(); it != it_end; ++it)
     if (*it != "id" && *it != "timestamp" && data.data.count(*it) == 0)
       data[*it] << "";
@@ -388,26 +409,20 @@ Query PgSQLService::GetTables(const Anope::string &prefix)
 //------------------------------------------------------------------------------
 void PgSQLService::Connect()
 {
+  // TODO: Add Timeout
   // "-c connect_timeout=5"
-  this->sql = PQsetdbLogin(this->server.c_str(), "5432", NULL, NULL, this->database.c_str(), this->user.c_str(), this->password.c_str());
+  m_pConnection = PQsetdbLogin(m_hostname.c_str(), m_port.c_str(), NULL, NULL, m_database.c_str(), m_username.c_str(), m_password.c_str());
 
-  //const unsigned int timeout = 1;
+  if (!m_pConnection || PQstatus(m_pConnection) == CONNECTION_BAD)
+    throw SQL::Exception("Unable to connect to the postgres server " + this->name + ": " + PQerrorMessage(m_pConnection));
 
-  //bool connect = pgsql_real_connect(this->sql, this->server.c_str(), this->user.c_str(), this->password.c_str(), this->database.c_str(), this->port, NULL, CLIENT_MULTI_RESULTS);
-
-  if (!this->sql)
-    throw SQL::Exception("Unable to connect to PgSQL service " + this->name + ": " + PQerrorMessage(this->sql));
-
-  if(PQstatus(this->sql) == CONNECTION_BAD)
-    throw SQL::Exception("Unable to connect to PgSQL service " + this->name + ": " + PQerrorMessage(this->sql));
-
-  Log(LOG_DEBUG) << "Successfully connected to PgSQL service " << this->name << " at " << this->server << ":" << this->port;
+  Log(LOG_DEBUG) << "Successfully connected to the postgres server " << this->name << " at " << this->m_hostname << ":" << this->m_port;
 }
 
 //------------------------------------------------------------------------------
 bool PgSQLService::CheckConnection()
 {
-  if (!this->sql || (PQstatus(this->sql) == CONNECTION_BAD))
+  if (!m_pConnection || (PQstatus(m_pConnection) == CONNECTION_BAD))
   {
     try
     {
@@ -423,29 +438,31 @@ bool PgSQLService::CheckConnection()
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::Escape(const Anope::string &query)
+Anope::string PgSQLService::Escape(const Anope::string& _query)
 {
-  std::vector<char> buffer(query.length() * 2 + 1);
-    int error;
-    size_t escapedsize = PQescapeStringConn(this->sql, &buffer[0], query.c_str(), query.length(), &error);
+  std::vector<char> buffer(_query.length() * 2 + 1);
+
+  int error;
+  size_t escapedsize = PQescapeStringConn(m_pConnection, &buffer[0], _query.c_str(), _query.length(), &error);
+
   return &buffer[0];
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::BuildQuery(const Query &q)
+Anope::string PgSQLService::BuildQuery(const Query& _rawQuery)
 {
-  Anope::string real_query = q.query;
+  Anope::string query = _rawQuery.query;
 
-  for (std::map<Anope::string, QueryData>::const_iterator it = q.parameters.begin(), it_end = q.parameters.end(); it != it_end; ++it)
-    real_query = real_query.replace_all_cs("@" + it->first + "@", (it->second.escape ? ("'" + this->Escape(it->second.data) + "'") : it->second.data));
+  for (std::map<Anope::string, QueryData>::const_iterator it = _rawQuery.parameters.begin(), it_end = _rawQuery.parameters.end(); it != it_end; ++it)
+    query = query.replace_all_cs("@" + it->first + "@", (it->second.escape ? ("'" + this->Escape(it->second.data) + "'") : it->second.data));
 
-  return real_query;
+  return query;
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::FromUnixtime(time_t t)
+Anope::string PgSQLService::FromUnixtime(time_t _time)
 {
-  return "FROM_UNIXTIME(" + stringify(t) + ")";
+  return "FROM_UNIXTIME(" + stringify(_time) + ")";
 }
 
 //------------------------------------------------------------------------------

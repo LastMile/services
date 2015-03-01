@@ -100,8 +100,9 @@ class PgSQLModule : public Module, public Pipe
 class DispatcherThread : public Thread, public Condition
 {
   public:
+  DispatcherThread();
+  ~DispatcherThread();
 
-  DispatcherThread() : Thread() { }
   void Run() anope_override;
 };
 
@@ -110,15 +111,15 @@ class DispatcherThread : public Thread, public Condition
 //------------------------------------------------------------------------------
 class PgSQLService : public Provider
 {
-  std::map<Anope::string, std::set<Anope::string> > active_schema;
+  std::map<Anope::string, std::set<Anope::string> > m_activeSchema;
 
-  Anope::string database;
-  Anope::string server;
-  Anope::string user;
-  Anope::string password;
-  int port;
-
-  PGconn *sql;
+  Anope::string m_username;
+  Anope::string m_password;
+  Anope::string m_hostname;
+  Anope::string m_port;
+  Anope::string m_database;
+  
+  PGconn* m_pConnection;
 
   /** Escape a query.
    * Note the mutex must be held!
@@ -126,32 +127,24 @@ class PgSQLService : public Provider
   Anope::string Escape(const Anope::string &query);
 
  public:
-  /* Locked by the SQL thread when a query is pending on this database,
+  /* Locked by the SQL thread when a query is pending on this m_database,
    * prevents us from deleting a connection while a query is executing
    * in the thread
    */
   Mutex Lock; // TODO: Move to private
 
-  PgSQLService(Module *o, const Anope::string &n, const Anope::string &d, const Anope::string &s, const Anope::string &u, const Anope::string &p, int po);
-
+  PgSQLService(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
   ~PgSQLService();
 
-  void Run(Interface *i, const Query &query) anope_override;
-
-  Result RunQuery(const Query &query) anope_override;
-
-  std::vector<Query> CreateTable(const Anope::string &table, const Data &data) anope_override;
-
-  Query BuildInsert(const Anope::string &table, unsigned int id, Data &data) anope_override;
-
-  Query GetTables(const Anope::string &prefix) anope_override;
+  void Run(Interface* _pInterface, const Query& _query) anope_override;
+  Result RunQuery(const Query& _rawQuery) anope_override;
+  std::vector<Query> CreateTable(const Anope::string& _table, const Data& _data) anope_override;
+  Query BuildInsert(const Anope::string& _table, unsigned int _id, Data& _data) anope_override;
+  Query GetTables(const Anope::string& _prefix) anope_override;
 
   void Connect();
-
   bool CheckConnection();
-
-  Anope::string BuildQuery(const Query &q);
-
+  Anope::string BuildQuery(const Query& _rawQuery);
   Anope::string FromUnixtime(time_t);
 };
 

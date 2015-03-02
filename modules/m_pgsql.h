@@ -39,14 +39,11 @@ class PgSQLService;
 //------------------------------------------------------------------------------
 struct QueryRequest
 {
-  /* The connection to the database */
-  PgSQLService *service;
-  /* The interface to use once we have the result to send the data back */
-  Interface *sqlinterface;
-  /* The actual query */
-  Query query;
+  PgSQLService* pService; // The connection to the database
+  Interface* pSQLInterface; // The interface to use once we have the result to send the data back
+  Query query; // The actual query
 
-  QueryRequest(PgSQLService *s, Interface *i, const Query &q) : service(s), sqlinterface(i), query(q) { }
+  QueryRequest(PgSQLService* _pService, Interface* _pInterface, const Query& _query);
 };
 
 //------------------------------------------------------------------------------
@@ -54,12 +51,10 @@ struct QueryRequest
 //------------------------------------------------------------------------------
 struct QueryResult
 {
-  /* The interface to send the data back on */
-  Interface *sqlinterface;
-  /* The result */
+  Interface* pSQLInterface;
   Result result;
 
-  QueryResult(Interface *i, Result &r) : sqlinterface(i), result(r) { }
+  QueryResult(Interface* _pInterface, Result& _result);
 };
 
 //------------------------------------------------------------------------------
@@ -118,7 +113,7 @@ class PgSQLService : public Provider
   Anope::string m_hostname;
   Anope::string m_port;
   Anope::string m_database;
-  
+
   PGconn* m_pConnection;
 
   /** Escape a query.

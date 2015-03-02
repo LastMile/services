@@ -19,6 +19,27 @@
 static PgSQLModule *me; // TODO: Made proper singalton
 
 //------------------------------------------------------------------------------
+// QueryRequest
+//------------------------------------------------------------------------------
+QueryRequest::QueryRequest(PgSQLService* _pService, Interface* _pInterface, const Query& _query)
+  : pService(_pService),
+    pSQLInterface(_pInterface),
+    query(_query)
+{
+
+}
+
+//------------------------------------------------------------------------------
+// QueryResult
+//------------------------------------------------------------------------------
+QueryResult::QueryResult(Interface* _pInterface, Result& _result)
+  : pSQLInterface(_pInterface),
+    result(_result)
+{
+
+}
+
+//------------------------------------------------------------------------------
 // PgSQLResult
 //------------------------------------------------------------------------------
 PgSQLResult::PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::string& _renderedQuery, PGresult* _pResult)
@@ -150,14 +171,14 @@ void PgSQLModule::OnModuleUnload(User* _pUser, Module* _pModule) anope_override
 
   for (unsigned i = this->QueryRequests.size(); i > 0; --i)
   {
-    QueryRequest &r = this->QueryRequests[i - 1];
+    QueryRequest& request = this->QueryRequests[i - 1];
 
-    if (r.sqlinterface && r.sqlinterface->owner == _pModule)
+    if (request.pSQLInterface && request.pSQLInterface->owner == _pModule)
     {
       if (i == 1)
       {
-        r.service->Lock.Lock();
-        r.service->Lock.Unlock();
+        request.pService->Lock.Lock();
+        request.pService->Lock.Unlock();
       }
 
       this->QueryRequests.erase(this->QueryRequests.begin() + i - 1);
@@ -165,7 +186,6 @@ void PgSQLModule::OnModuleUnload(User* _pUser, Module* _pModule) anope_override
   }
 
   this->DThread->Unlock();
-
   this->OnNotify();
 }
 
@@ -179,15 +199,15 @@ void PgSQLModule::OnNotify() anope_override
 
   for (std::deque<QueryResult>::const_iterator it = finishedRequests.begin(), it_end = finishedRequests.end(); it != it_end; ++it)
   {
-    const QueryResult &qr = *it;
+    const QueryResult& queryResult = *it;
 
-    if (!qr.sqlinterface)
-      throw SQL::Exception("NULL qr.sqlinterface in PgSQLPipe::OnNotify() ?");
+    if (!queryResult.pSQLInterface)
+      throw SQL::Exception("NULL queryResult.pSQLInterface in PgSQLPipe::OnNotify() ?");
 
-    if (qr.result.GetError().empty())
-      qr.sqlinterface->OnResult(qr.result);
+    if (queryResult.result.GetError().empty())
+      queryResult.pSQLInterface->OnResult(queryResult.result);
     else
-      qr.sqlinterface->OnError(qr.result);
+      queryResult.pSQLInterface->OnError(queryResult.result);
   }
 }
 
@@ -215,16 +235,16 @@ void DispatcherThread::Run() anope_override
   {
     if (!me->QueryRequests.empty())
     {
-      QueryRequest &r = me->QueryRequests.front();
+      QueryRequest& request = me->QueryRequests.front();
       this->Unlock();
 
-      Result sresult = r.service->RunQuery(r.query);
+      Result sresult = request.pService->RunQuery(request.query);
 
       this->Lock();
-      if (!me->QueryRequests.empty() && me->QueryRequests.front().query == r.query)
+      if (!me->QueryRequests.empty() && me->QueryRequests.front().query == request.query)
       {
-        if (r.sqlinterface)
-          me->FinishedRequests.push_back(QueryResult(r.sqlinterface, sresult));
+        if (request.pSQLInterface)
+          me->FinishedRequests.push_back(QueryResult(request.pSQLInterface, sresult));
 
         me->QueryRequests.pop_front();
       }
@@ -265,12 +285,12 @@ PgSQLService::~PgSQLService()
 
   for (unsigned i = me->QueryRequests.size(); i > 0; --i)
   {
-    QueryRequest &r = me->QueryRequests[i - 1];
+    QueryRequest& request = me->QueryRequests[i - 1];
 
-    if (r.service == this)
+    if (request.pService == this)
     {
-      if (r.sqlinterface)
-        r.sqlinterface->OnError(Result(0, r.query, "SQL Interface is going away"));
+      if (request.pSQLInterface)
+        request.pSQLInterface->OnError(Result(0, request.query, "SQL Interface is going away"));
       me->QueryRequests.erase(me->QueryRequests.begin() + i - 1);
     }
   }

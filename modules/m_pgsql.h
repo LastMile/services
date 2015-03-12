@@ -13,22 +13,10 @@
 
 using namespace SQL;
 
-/** Non blocking threaded postgresql API, based on anope's m_mysql.cpp
- *
- * This module spawns a single thread that is used to execute blocking PgSQL queries.
- * When a module requests a query to be executed it is added to a list for the thread
- * (which never stops looping and sleeping) to pick up and execute, the result of which
- * is inserted in to another queue to be picked up by the main thread. The main thread
- * uses Pipe to become notified through the socket engine when there are results waiting
- * to be sent back to the modules requesting the query
- */
-
 struct QueryRequest;
 struct QueryResult;
 
-class DispatcherThread;
 class PgSQLModule;
-
 class PgSQLResult;
 class PgSQLConnection;
 
@@ -79,7 +67,6 @@ class PgSQLModule : public Module, public Pipe
   
   std::deque<QueryRequest> QueryRequests;   // Pending query requests
   std::deque<QueryResult> FinishedRequests; // Pending finished requests with results
-  DispatcherThread *DThread;                // The thread used to execute queries
 
   PgSQLModule(const Anope::string& _name, const Anope::string& _creator);
   ~PgSQLModule();
@@ -87,18 +74,6 @@ class PgSQLModule : public Module, public Pipe
   void OnReload(Configuration::Conf* _pConfig) anope_override;
   void OnModuleUnload(User* _pUser, Module* _pModule) anope_override;
   void OnNotify() anope_override;
-};
-
-//------------------------------------------------------------------------------
-// DispatcherThread
-//------------------------------------------------------------------------------
-class DispatcherThread : public Thread, public Condition
-{
-  public:
-  DispatcherThread();
-  ~DispatcherThread();
-
-  void Run() anope_override;
 };
 
 //------------------------------------------------------------------------------
@@ -117,18 +92,9 @@ class PgSQLConnection : public Provider
 
   PGconn* m_pConnection;
 
-  /** Escape a query.
-   * Note the mutex must be held!
-   */
   Anope::string Escape(const Anope::string &query);
 
  public:
-  /* Locked by the SQL thread when a query is pending on this m_database,
-   * prevents us from deleting a connection while a query is executing
-   * in the thread
-   */
-  Mutex Lock; // TODO: Move to private
-
   PgSQLConnection(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
   ~PgSQLConnection();
 

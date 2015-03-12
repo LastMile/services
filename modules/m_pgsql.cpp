@@ -6,16 +6,6 @@
 //==============================================================================
 #include "m_pgsql.h"
 
-/** Non blocking threaded postgresql API, based on anope's m_mysql.cpp
- *
- * This module spawns a single thread that is used to execute blocking PgSQL queries.
- * When a module requests a query to be executed it is added to a list for the thread
- * (which never stops looping and sleeping) to pick up and execute, the result of which
- * is inserted in to another queue to be picked up by the main thread. The main thread
- * uses Pipe to become notified through the socket engine when there are results waiting
- * to be sent back to the modules requesting the query
- */
-
 static PgSQLModule *me; // TODO: Made proper singalton
 
 //------------------------------------------------------------------------------
@@ -47,8 +37,6 @@ PgSQLResult::PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::
   m_pResult(_pResult)
 {
   int num_fields = m_pResult ? PQnfields(m_pResult) : 0;
-
-  /* It is not thread safe to log anything here using Log(this->owner) now :( */
 
   if (num_fields == 0)
     return;
@@ -90,10 +78,6 @@ PgSQLModule::PgSQLModule(const Anope::string& _name, const Anope::string& _creat
   : Module(_name, _creator, EXTRA | VENDOR)
 {
   me = this;
-  
-  
-  DThread = new DispatcherThread();
-  DThread->Start();
 }
 
 //------------------------------------------------------------------------------
@@ -106,13 +90,6 @@ PgSQLModule::~PgSQLModule()
     Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << hCurrentConnection->first;
   }
   m_connections.clear();
-
-  
-  DThread->SetExitState();
-  DThread->Wakeup();
-  DThread->Join();
-
-  delete DThread;
 }
 
 //------------------------------------------------------------------------------
@@ -160,35 +137,24 @@ void PgSQLModule::OnReload(Configuration::Conf* _pConfig) anope_override
 //------------------------------------------------------------------------------
 void PgSQLModule::OnModuleUnload(User* _pUser, Module* _pModule) anope_override
 {
-  this->DThread->Lock();
-
   for (unsigned i = this->QueryRequests.size(); i > 0; --i)
   {
     QueryRequest& request = this->QueryRequests[i - 1];
 
     if (request.pSQLInterface && request.pSQLInterface->owner == _pModule)
     {
-      if (i == 1)
-      {
-        request.pService->Lock.Lock();
-        request.pService->Lock.Unlock();
-      }
-
       this->QueryRequests.erase(this->QueryRequests.begin() + i - 1);
     }
   }
-
-  this->DThread->Unlock();
+  
   this->OnNotify();
 }
 
 //------------------------------------------------------------------------------
 void PgSQLModule::OnNotify() anope_override
 {
-  this->DThread->Lock();
   std::deque<QueryResult> finishedRequests = this->FinishedRequests;
   this->FinishedRequests.clear();
-  this->DThread->Unlock();
 
   for (std::deque<QueryResult>::const_iterator it = finishedRequests.begin(), it_end = finishedRequests.end(); it != it_end; ++it)
   {
@@ -202,55 +168,6 @@ void PgSQLModule::OnNotify() anope_override
     else
       queryResult.pSQLInterface->OnError(queryResult.result);
   }
-}
-
-//------------------------------------------------------------------------------
-// DispatcherThread
-//------------------------------------------------------------------------------
-DispatcherThread::DispatcherThread()
-  : Thread()
-{
-
-}
-
-//------------------------------------------------------------------------------
-DispatcherThread::~DispatcherThread()
-{
-
-}
-
-//------------------------------------------------------------------------------
-void DispatcherThread::Run() anope_override
-{
-  this->Lock();
-
-  while (!this->GetExitState())
-  {
-    if (!me->QueryRequests.empty())
-    {
-      QueryRequest& request = me->QueryRequests.front();
-      this->Unlock();
-
-      Result sresult = request.pService->RunQuery(request.query);
-
-      this->Lock();
-      if (!me->QueryRequests.empty() && me->QueryRequests.front().query == request.query)
-      {
-        if (request.pSQLInterface)
-          me->FinishedRequests.push_back(QueryResult(request.pSQLInterface, sresult));
-
-        me->QueryRequests.pop_front();
-      }
-    }
-    else
-    {
-      if (!me->FinishedRequests.empty())
-        me->Notify();
-      this->Wait();
-    }
-  }
-
-  this->Unlock();
 }
 
 //------------------------------------------------------------------------------
@@ -271,8 +188,6 @@ PgSQLConnection::PgSQLConnection(Module* _pO, const Anope::string& _name, const 
 //------------------------------------------------------------------------------
 PgSQLConnection::~PgSQLConnection()
 {
-  me->DThread->Lock();
-  this->Lock.Lock();
   PQfinish(m_pConnection);
   m_pConnection = NULL;
 
@@ -287,25 +202,18 @@ PgSQLConnection::~PgSQLConnection()
       me->QueryRequests.erase(me->QueryRequests.begin() + i - 1);
     }
   }
-  this->Lock.Unlock();
-  me->DThread->Unlock();
 }
 
 //------------------------------------------------------------------------------
 void PgSQLConnection::Run(Interface* _pInterface, const Query& _query)
 {
-  me->DThread->Lock();
   me->QueryRequests.push_back(QueryRequest(this, _pInterface, _query));
-  me->DThread->Unlock();
-  me->DThread->Wakeup();
 }
 
 //------------------------------------------------------------------------------
 Result PgSQLConnection::RunQuery(const Query& _rawQuery)
 {
   PGresult* pResult;
-
-  this->Lock.Lock();
 
   Anope::string renderedQuery = this->BuildQuery(_rawQuery);
 
@@ -315,13 +223,11 @@ Result PgSQLConnection::RunQuery(const Query& _rawQuery)
     //unsigned int id = pgsql_insert_id(m_pConnection);
     int id = 42;
 
-    this->Lock.Unlock();
     return PgSQLResult(id, _rawQuery, renderedQuery, pResult);
   }
 
   Anope::string error = PQerrorMessage(m_pConnection);
 
-  this->Lock.Unlock();
   return PgSQLResult(_rawQuery, renderedQuery, error);
 }
 

@@ -21,15 +21,35 @@ class PgSQLResult;
 class PgSQLConnection;
 
 //------------------------------------------------------------------------------
+// PgSQLModule
+//------------------------------------------------------------------------------
+class PgSQLModule : public Module, public Pipe
+{
+  std::map<Anope::string, PgSQLConnection*> m_connections;
+  
+  public:
+  
+  std::deque<QueryRequest> QueryRequests;   // Pending query requests
+  std::deque<QueryResult> FinishedRequests; // Pending finished requests with results
+
+  PgSQLModule(const Anope::string& _name, const Anope::string& _creator);
+  ~PgSQLModule();
+
+  void OnReload(Configuration::Conf* _pConfig) anope_override;
+  void OnModuleUnload(User* _pUser, Module* _pModule) anope_override;
+  void OnNotify() anope_override;
+};
+
+//------------------------------------------------------------------------------
 // QueryRequest
 //------------------------------------------------------------------------------
 struct QueryRequest
 {
-  PgSQLConnection* pService; // The connection to the database
+  PgSQLConnection* pConnection;
   Interface* pSQLInterface; // The interface to use once we have the result to send the data back
   Query query; // The actual query
 
-  QueryRequest(PgSQLConnection* _pService, Interface* _pInterface, const Query& _query);
+  QueryRequest(PgSQLConnection* _pConnection, Interface* _pInterface, const Query& _query);
 };
 
 //------------------------------------------------------------------------------
@@ -54,26 +74,6 @@ class PgSQLResult : public Result
   PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::string& _renderedQuery, PGresult* _pResult);
   PgSQLResult(const Query& _rawQuery, const Anope::string& _renderedQuery, const Anope::string& _error);
   ~PgSQLResult();
-};
-
-//------------------------------------------------------------------------------
-// PgSQLModule
-//------------------------------------------------------------------------------
-class PgSQLModule : public Module, public Pipe
-{
-  std::map<Anope::string, PgSQLConnection*> m_connections;
-  
-  public:
-  
-  std::deque<QueryRequest> QueryRequests;   // Pending query requests
-  std::deque<QueryResult> FinishedRequests; // Pending finished requests with results
-
-  PgSQLModule(const Anope::string& _name, const Anope::string& _creator);
-  ~PgSQLModule();
-
-  void OnReload(Configuration::Conf* _pConfig) anope_override;
-  void OnModuleUnload(User* _pUser, Module* _pModule) anope_override;
-  void OnNotify() anope_override;
 };
 
 //------------------------------------------------------------------------------

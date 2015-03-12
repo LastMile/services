@@ -460,12 +460,13 @@ bool PgSQLService::CheckConnection()
 //------------------------------------------------------------------------------
 Anope::string PgSQLService::Escape(const Anope::string& _query)
 {
-  std::vector<char> buffer(_query.length() * 2 + 1);
+  Anope::string escapedQuery;
+  escapedQuery.resize(_query.length() * 2 + 1);
 
   int error;
-  size_t escapedsize = PQescapeStringConn(m_pConnection, &buffer[0], _query.c_str(), _query.length(), &error);
+  PQescapeStringConn(m_pConnection, escapedQuery.c_str(), _query.c_str(), _query.length(), &error);
 
-  return &buffer[0];
+  return &escapedQuery;
 }
 
 //------------------------------------------------------------------------------
@@ -484,6 +485,3 @@ Anope::string PgSQLService::FromUnixtime(time_t _time)
 {
   return "FROM_UNIXTIME(" + stringify(_time) + ")";
 }
-
-//------------------------------------------------------------------------------
-//MODULE_INIT(PgSQLModule)

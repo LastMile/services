@@ -9,8 +9,6 @@
 
 #include <cstdlib>
 #include <sstream>
-
-#define NO_CLIENT_LONG_LONG // TODO:: Whats this for?
 #include <libpq-fe.h>
 
 using namespace SQL;

@@ -30,18 +30,18 @@ class DispatcherThread;
 class PgSQLModule;
 
 class PgSQLResult;
-class PgSQLService;
+class PgSQLConnection;
 
 //------------------------------------------------------------------------------
 // QueryRequest
 //------------------------------------------------------------------------------
 struct QueryRequest
 {
-  PgSQLService* pService; // The connection to the database
+  PgSQLConnection* pService; // The connection to the database
   Interface* pSQLInterface; // The interface to use once we have the result to send the data back
   Query query; // The actual query
 
-  QueryRequest(PgSQLService* _pService, Interface* _pInterface, const Query& _query);
+  QueryRequest(PgSQLConnection* _pService, Interface* _pInterface, const Query& _query);
 };
 
 //------------------------------------------------------------------------------
@@ -73,8 +73,10 @@ class PgSQLResult : public Result
 //------------------------------------------------------------------------------
 class PgSQLModule : public Module, public Pipe
 {
-  std::map<Anope::string, PgSQLService*> m_databases;
- public:
+  std::map<Anope::string, PgSQLConnection*> m_connections;
+  
+  public:
+  
   std::deque<QueryRequest> QueryRequests;   // Pending query requests
   std::deque<QueryResult> FinishedRequests; // Pending finished requests with results
   DispatcherThread *DThread;                // The thread used to execute queries
@@ -100,9 +102,9 @@ class DispatcherThread : public Thread, public Condition
 };
 
 //------------------------------------------------------------------------------
-// PgSQLService
+// PgSQLConnection
 //------------------------------------------------------------------------------
-class PgSQLService : public Provider
+class PgSQLConnection : public Provider
 {
   std::map<Anope::string, std::set<Anope::string> > m_activeSchema;
 
@@ -111,6 +113,7 @@ class PgSQLService : public Provider
   Anope::string m_hostname;
   Anope::string m_port;
   Anope::string m_database;
+  Anope::string m_schema;
 
   PGconn* m_pConnection;
 
@@ -126,8 +129,8 @@ class PgSQLService : public Provider
    */
   Mutex Lock; // TODO: Move to private
 
-  PgSQLService(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
-  ~PgSQLService();
+  PgSQLConnection(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
+  ~PgSQLConnection();
 
   void Run(Interface* _pInterface, const Query& _query) anope_override;
   Result RunQuery(const Query& _rawQuery) anope_override;

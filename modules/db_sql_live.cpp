@@ -139,7 +139,6 @@ void DBSQLLive::OnReload(Configuration::Conf* _pConfig) anope_override
 {
   Configuration::Block* pBlock = _pConfig->GetModule(this);
   m_hDatabaseService = ServiceReference<Provider>("SQL::Provider", pBlock->Get<const Anope::string>("engine"));
-  m_prefix = pBlock->Get<const Anope::string>("prefix", "anope_db_"); // TODO: move to db service
 }
 
 //------------------------------------------------------------------------------

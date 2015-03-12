@@ -15,7 +15,6 @@ using namespace SQL;
 class DBSQLLive : public Module, public Pipe
 {
   std::set<Serializable*> m_updatedItems;
-  Anope::string m_prefix;
 
   ServiceReference<Provider> m_hDatabaseService;
   bool m_isDatabaseLoaded;

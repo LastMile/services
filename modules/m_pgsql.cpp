@@ -21,7 +21,7 @@ static PgSQLModule *me; // TODO: Made proper singalton
 //------------------------------------------------------------------------------
 // QueryRequest
 //------------------------------------------------------------------------------
-QueryRequest::QueryRequest(PgSQLService* _pService, Interface* _pInterface, const Query& _query)
+QueryRequest::QueryRequest(PgSQLConnection* _pService, Interface* _pInterface, const Query& _query)
   : pService(_pService),
     pSQLInterface(_pInterface),
     query(_query)
@@ -90,7 +90,8 @@ PgSQLModule::PgSQLModule(const Anope::string& _name, const Anope::string& _creat
   : Module(_name, _creator, EXTRA | VENDOR)
 {
   me = this;
-
+  
+  
   DThread = new DispatcherThread();
   DThread->Start();
 }
@@ -98,11 +99,15 @@ PgSQLModule::PgSQLModule(const Anope::string& _name, const Anope::string& _creat
 //------------------------------------------------------------------------------
 PgSQLModule::~PgSQLModule()
 {
-  for (std::map<Anope::string, PgSQLService*>::iterator it = this->m_databases.begin(); it != this->m_databases.end(); ++it)
-    delete it->second;
+  // Disconnect
+  for (std::map<Anope::string, PgSQLConnection*>::iterator hCurrentConnection = this->m_connections.begin(); hCurrentConnection != this->m_connections.end(); ++hCurrentConnection)
+  {
+    delete hCurrentConnection->second;
+    Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << hCurrentConnection->first;
+  }
+  m_connections.clear();
 
-  m_databases.clear();
-
+  
   DThread->SetExitState();
   DThread->Wakeup();
   DThread->Join();
@@ -113,52 +118,40 @@ PgSQLModule::~PgSQLModule()
 //------------------------------------------------------------------------------
 void PgSQLModule::OnReload(Configuration::Conf* _pConfig) anope_override
 {
-  Configuration::Block* pBlock = _pConfig->GetModule(this);
-
-  for (std::map<Anope::string, PgSQLService *>::iterator it = this->m_databases.begin(); it != this->m_databases.end();)
+  // Disconnect
+  for (std::map<Anope::string, PgSQLConnection*>::iterator hCurrentConnection = this->m_connections.begin(); hCurrentConnection != this->m_connections.end(); ++hCurrentConnection)
   {
-    const Anope::string &cname = it->first;
-    PgSQLService *s = it->second;
-    int i;
-
-    ++it;
-
-    for (i = 0; i < pBlock->CountBlock("pgsql"); ++i)
-      if (pBlock->GetBlock("pgsql", i)->Get<const Anope::string>("name", "pgsql/main") == cname)
-        break;
-
-    if (i == pBlock->CountBlock("pgsql"))
-    {
-      Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << cname;
-
-      delete s;
-      this->m_databases.erase(cname);
-    }
+    delete hCurrentConnection->second;
+    Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << hCurrentConnection->first;
   }
-
+  m_connections.clear();
+  
+  // Connect
+  Configuration::Block* pBlock = _pConfig->GetModule(this);
   for (int i = 0; i < pBlock->CountBlock("pgsql"); ++i)
   {
-    Configuration::Block *block = pBlock->GetBlock("pgsql", i);
-    const Anope::string &connname = block->Get<const Anope::string>("name", "pgsql/main");
+    Configuration::Block* pPgSqlBlock = pBlock->GetBlock("pgsql", i);
+    const Anope::string& connectionName = block->Get<const Anope::string>("name", "pgsql/main");
 
-    if (this->m_databases.find(connname) == this->m_databases.end())
+    if (this->m_connections.find(connectionName) == this->m_connections.end())
     {
-      const Anope::string &database = block->Get<const Anope::string>("database", "anope");
-      const Anope::string &server = block->Get<const Anope::string>("server", "127.0.0.1");
-      const Anope::string &user = block->Get<const Anope::string>("username", "anope");
+      const Anope::string &user     = block->Get<const Anope::string>("username", "anope");
       const Anope::string &password = block->Get<const Anope::string>("password");
-      int port = block->Get<int>("port", "5432");
-
+      const Anope::string &server   = block->Get<const Anope::string>("server", "127.0.0.1");
+      const Anope::string &port     = block->Get<const Anope::string>("port", "5432");
+      const Anope::string &database = block->Get<const Anope::string>("database", "anope");
+      const Anope::string &schema   = block->Get<const Anope::string>("schema", "public");
+      
       try
       {
-        PgSQLService *ss = new PgSQLService(this, connname, database, server, user, password, port);
-        this->m_databases.insert(std::make_pair(connname, ss));
+        PgSQLConnection* pConnection = new PgSQLConnection(this, connectionName, database, server, user, password, port);
+        this->m_connections.insert(std::make_pair(connectionName, pConnection));
 
-        Log(LOG_NORMAL, "pgsql") << "PgSQL: Successfully connected to server " << connname << " (" << server << ")";
+        Log(LOG_NORMAL, "pgsql") << "PgSQL: Successfully connected to server " << connectionName << " (" << server << ")";
       }
-      catch (const SQL::Exception &ex)
+      catch (const SQL::Exception& exception)
       {
-        Log(LOG_NORMAL, "pgsql") << "PgSQL: " << ex.GetReason();
+        Log(LOG_NORMAL, "pgsql") << "PgSQL: " << exception.GetReason();
       }
     }
   }
@@ -261,9 +254,9 @@ void DispatcherThread::Run() anope_override
 }
 
 //------------------------------------------------------------------------------
-// PgSQLService
+// PgSQLConnection
 //------------------------------------------------------------------------------
-PgSQLService::PgSQLService(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)
+PgSQLConnection::PgSQLConnection(Module* _pO, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)
   : Provider(_pO, _name),
   m_username(_username),
   m_password(_password),
@@ -276,7 +269,7 @@ PgSQLService::PgSQLService(Module* _pO, const Anope::string& _name, const Anope:
 }
 
 //------------------------------------------------------------------------------
-PgSQLService::~PgSQLService()
+PgSQLConnection::~PgSQLConnection()
 {
   me->DThread->Lock();
   this->Lock.Lock();
@@ -299,7 +292,7 @@ PgSQLService::~PgSQLService()
 }
 
 //------------------------------------------------------------------------------
-void PgSQLService::Run(Interface* _pInterface, const Query& _query)
+void PgSQLConnection::Run(Interface* _pInterface, const Query& _query)
 {
   me->DThread->Lock();
   me->QueryRequests.push_back(QueryRequest(this, _pInterface, _query));
@@ -308,7 +301,7 @@ void PgSQLService::Run(Interface* _pInterface, const Query& _query)
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLService::RunQuery(const Query& _rawQuery)
+Result PgSQLConnection::RunQuery(const Query& _rawQuery)
 {
   PGresult* pResult;
 
@@ -333,7 +326,7 @@ Result PgSQLService::RunQuery(const Query& _rawQuery)
 }
 
 //------------------------------------------------------------------------------
-std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const Data &data)
+std::vector<Query> PgSQLConnection::CreateTable(const Anope::string &table, const Data &data)
 {
   std::vector<Query> queries;
   std::set<Anope::string> &known_cols = m_activeSchema[table];
@@ -390,7 +383,7 @@ std::vector<Query> PgSQLService::CreateTable(const Anope::string &table, const D
 }
 
 //------------------------------------------------------------------------------
-Query PgSQLService::BuildInsert(const Anope::string &table, unsigned int id, Data &data)
+Query PgSQLConnection::BuildInsert(const Anope::string &table, unsigned int id, Data &data)
 {
   /* Empty columns not present in the data set */
   const std::set<Anope::string> &known_cols = m_activeSchema[table];
@@ -421,13 +414,13 @@ Query PgSQLService::BuildInsert(const Anope::string &table, unsigned int id, Dat
 }
 
 //------------------------------------------------------------------------------
-Query PgSQLService::GetTables(const Anope::string &prefix)
+Query PgSQLConnection::GetTables(const Anope::string &prefix)
 {
   return Query("SHOW TABLES LIKE '" + prefix + "%';");
 }
 
 //------------------------------------------------------------------------------
-void PgSQLService::Connect()
+void PgSQLConnection::Connect()
 {
   // TODO: Add Timeout
   // "-c connect_timeout=5"
@@ -440,7 +433,7 @@ void PgSQLService::Connect()
 }
 
 //------------------------------------------------------------------------------
-bool PgSQLService::CheckConnection()
+bool PgSQLConnection::CheckConnection()
 {
   if (!m_pConnection || (PQstatus(m_pConnection) == CONNECTION_BAD))
   {
@@ -458,7 +451,7 @@ bool PgSQLService::CheckConnection()
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::Escape(const Anope::string& _query)
+Anope::string PgSQLConnection::Escape(const Anope::string& _query)
 {
   Anope::string escapedQuery;
   escapedQuery.resize(_query.length() * 2 + 1);
@@ -470,7 +463,7 @@ Anope::string PgSQLService::Escape(const Anope::string& _query)
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::BuildQuery(const Query& _rawQuery)
+Anope::string PgSQLConnection::BuildQuery(const Query& _rawQuery)
 {
   Anope::string query = _rawQuery.query;
 
@@ -481,7 +474,7 @@ Anope::string PgSQLService::BuildQuery(const Query& _rawQuery)
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLService::FromUnixtime(time_t _time)
+Anope::string PgSQLConnection::FromUnixtime(time_t _time)
 {
   return "FROM_UNIXTIME(" + stringify(_time) + ")";
 }

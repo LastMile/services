@@ -11,8 +11,8 @@ static PgSQLModule *me; // TODO: Made proper singalton
 //------------------------------------------------------------------------------
 // QueryRequest
 //------------------------------------------------------------------------------
-QueryRequest::QueryRequest(PgSQLConnection* _pService, Interface* _pInterface, const Query& _query)
-  : pService(_pService),
+QueryRequest::QueryRequest(PgSQLConnection* _pConnection, Interface* _pInterface, const Query& _query)
+  : pConnection(_pConnection),
     pSQLInterface(_pInterface),
     query(_query)
 {
@@ -60,7 +60,7 @@ PgSQLResult::PgSQLResult(unsigned int _id, const Query& _rawQuery, const Anope::
 //------------------------------------------------------------------------------
 PgSQLResult::PgSQLResult(const Query& _rawQuery, const Anope::string& _renderedQuery, const Anope::string& _error)
   : Result(0, _rawQuery, _renderedQuery, _error),
-  m_pResult(nullptr)
+  m_pResult(NULL)
 {
 }
 
@@ -107,17 +107,17 @@ void PgSQLModule::OnReload(Configuration::Conf* _pConfig) anope_override
   Configuration::Block* pBlock = _pConfig->GetModule(this);
   for (int i = 0; i < pBlock->CountBlock("pgsql"); ++i)
   {
-    Configuration::Block* pPgSqlBlock = pBlock->GetBlock("pgsql", i);
-    const Anope::string& connectionName = block->Get<const Anope::string>("name", "pgsql/main");
+    Configuration::Block* pPgSQLBlock = pBlock->GetBlock("pgsql", i);
+    const Anope::string& connectionName = pPgSQLBlock->Get<const Anope::string>("name", "pgsql/main");
 
     if (this->m_connections.find(connectionName) == this->m_connections.end())
     {
-      const Anope::string &user     = block->Get<const Anope::string>("username", "anope");
-      const Anope::string &password = block->Get<const Anope::string>("password");
-      const Anope::string &server   = block->Get<const Anope::string>("server", "127.0.0.1");
-      const Anope::string &port     = block->Get<const Anope::string>("port", "5432");
-      const Anope::string &database = block->Get<const Anope::string>("database", "anope");
-      const Anope::string &schema   = block->Get<const Anope::string>("schema", "public");
+      const Anope::string &user     = pPgSQLBlock->Get<const Anope::string>("username", "anope");
+      const Anope::string &password = pPgSQLBlock->Get<const Anope::string>("password");
+      const Anope::string &server   = pPgSQLBlock->Get<const Anope::string>("server", "127.0.0.1");
+      const Anope::string &port     = pPgSQLBlock->Get<const Anope::string>("port", "5432");
+      const Anope::string &database = pPgSQLBlock->Get<const Anope::string>("database", "anope");
+      const Anope::string &schema   = pPgSQLBlock->Get<const Anope::string>("schema", "public");
       
       try
       {
@@ -180,7 +180,7 @@ PgSQLConnection::PgSQLConnection(Module* _pO, const Anope::string& _name, const 
   m_hostname(_hostname),
   m_port(_port),
   m_database(_database),
-  m_pConnection(nullptr)
+  m_pConnection(NULL)
 {
   Connect();
 }
@@ -195,7 +195,7 @@ PgSQLConnection::~PgSQLConnection()
   {
     QueryRequest& request = me->QueryRequests[i - 1];
 
-    if (request.pService == this)
+    if (request.pConnection == this)
     {
       if (request.pSQLInterface)
         request.pSQLInterface->OnError(Result(0, request.query, "SQL Interface is going away"));
@@ -363,9 +363,9 @@ Anope::string PgSQLConnection::Escape(const Anope::string& _query)
   escapedQuery.resize(_query.length() * 2 + 1);
 
   int error;
-  PQescapeStringConn(m_pConnection, escapedQuery.c_str(), _query.c_str(), _query.length(), &error);
+  PQescapeStringConn(m_pConnection, const_cast<char*>(escapedQuery.c_str()), _query.c_str(), _query.length(), &error);
 
-  return &escapedQuery;
+  return escapedQuery;
 }
 
 //------------------------------------------------------------------------------

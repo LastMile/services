@@ -62,7 +62,6 @@ Result DBSQLLive::RunQueryResult(const Query& _query)
 //------------------------------------------------------------------------------
 DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creator)
   : Module(_modname, _creator, DATABASE | VENDOR),
-  m_prefix(""),
   m_hDatabaseService("", ""),
   m_isDatabaseLoaded(false),
   m_lastwarn(NULL),
@@ -97,12 +96,12 @@ void DBSQLLive::OnNotify() anope_override
       continue;
 
     // TODO: Move the concerns of prefix to the database service
-    std::vector<Query> create = m_hDatabaseService->CreateTable(m_prefix + s_type->GetName(), data);
+    std::vector<Query> create = m_hDatabaseService->CreateTable(s_type->GetName(), data);
 
     for (unsigned int i = 0; i < create.size(); ++i)
       this->RunQueryResult(create[i]);
 
-    Result res = this->RunQueryResult(m_hDatabaseService->BuildInsert(m_prefix + s_type->GetName(), pObject->id, data));
+    Result res = this->RunQueryResult(m_hDatabaseService->BuildInsert(s_type->GetName(), pObject->id, data));
 
     if (res.GetID() && pObject->id != res.GetID())
     {
@@ -162,7 +161,7 @@ void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
   if (s_type)
   {
     if (_pObject->id > 0)
-      this->RunQuery("DELETE FROM \"" + m_prefix + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
+      this->RunQuery("DELETE FROM \"" + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
 
     s_type->objects.erase(_pObject->id);
   }
@@ -175,7 +174,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
   if (!this->isDatabaseReady() || _pObject->GetTimestamp() == Anope::CurTime)
     return;
 
-  Query query("SELECT * FROM \"" + m_prefix + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
+  Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
   _pObject->UpdateTimestamp();
 
@@ -238,7 +237,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
       else
       {
         if (!s)
-          this->RunQuery("UPDATE \"" + m_prefix + _pObject->GetName() + "\" SET \"timestamp\" = " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
+          this->RunQuery("UPDATE \"" + _pObject->GetName() + "\" SET \"timestamp\" = " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
         else
           delete s;
       }
@@ -247,7 +246,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 
   if (clear_null)
   {
-    query = "DELETE FROM \"" + m_prefix + _pObject->GetName() + "\" WHERE \"timestamp\" IS NULL";
+    query = "DELETE FROM \"" + _pObject->GetName() + "\" WHERE \"timestamp\" IS NULL";
     this->RunQuery(query);
   }
 }

@@ -29,7 +29,7 @@ bool DBSQL::isDatabaseReady()
 //------------------------------------------------------------------------------
 bool DBSQL::isConnectionReady()
 {
-  return m_isDatabaseLoaded && m_hDatabaseService;
+  return m_isDatabaseLoaded && m_hDatabaseConnection;
 }
 
 //------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ Result DBSQL::RunQuery(const Query& _query)
   if (!this->isDatabaseReady())
     throw SQL::Exception("Database not connected!");
 
-  Result result = m_hDatabaseService->RunQuery(_query);
+  Result result = m_hDatabaseConnection->RunQuery(_query);
 
   if (!result.GetError().empty())
     Log(LOG_DEBUG) << "DBSQL got error " << result.GetError() << " for " + result.finished_query;
@@ -138,7 +138,7 @@ Result DBSQL::Destroy(Serializable* _pObject)
 //------------------------------------------------------------------------------
 DBSQL::DBSQL(const Anope::string& _modname, const Anope::string& _creator)
   : Module(_modname, _creator, DATABASE | VENDOR),
-  m_hDatabaseService("", ""),
+  m_hDatabaseConnection("", ""),
   m_isDatabaseLoaded(false)
 {
   if (ModuleManager::FindFirstOf(DATABASE) != this)
@@ -179,12 +179,12 @@ void DBSQL::OnNotify() anope_override
 //       continue;
 
 //     // TODO: Move the concerns of prefix to the database service
-//     std::vector<Query> create = m_hDatabaseService->CreateTable(s_type->GetName(), data);
+//     std::vector<Query> create = m_hDatabaseConnection->CreateTable(s_type->GetName(), data);
 
 //     for (unsigned int i = 0; i < create.size(); ++i)
 //       this->RunQuery(create[i]);
 
-//     Result res = this->RunQuery(m_hDatabaseService->BuildInsert(s_type->GetName(), pObject->id, data));
+//     Result res = this->RunQuery(m_hDatabaseConnection->BuildInsert(s_type->GetName(), pObject->id, data));
 
 //     if (res.GetID() && pObject->id != res.GetID())
 //     {
@@ -220,7 +220,7 @@ void DBSQL::OnRestart() anope_override
 void DBSQL::OnReload(Configuration::Conf* _pConfig) anope_override
 {
   Configuration::Block* pBlock = _pConfig->GetModule(this);
-  m_hDatabaseService = ServiceReference<Provider>("SQL::Provider", pBlock->Get<const Anope::string>("engine"));
+  m_hDatabaseConnection = ServiceReference<Provider>("SQL::Provider", pBlock->Get<const Anope::string>("engine"));
 }
 
 //------------------------------------------------------------------------------
@@ -240,7 +240,7 @@ void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
   
   Log(LOG_DEBUG) << "DBSQL::OnSerializeCheck - " << _pObject->GetName();
 
-//   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
+//   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
 //   _pObject->UpdateTimestamp();
 
@@ -303,7 +303,7 @@ void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 //       else
 //       {
 //         if (!s)
-//           this->RunQuery("UPDATE \"" + _pObject->GetName() + "\" SET \"timestamp\" = " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
+//           this->RunQuery("UPDATE \"" + _pObject->GetName() + "\" SET \"timestamp\" = " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " WHERE \"id\" = " + stringify(id));
 //         else
 //           delete s;
 //       }

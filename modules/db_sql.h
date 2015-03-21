@@ -16,7 +16,7 @@ class DBSQL : public Module, public Pipe
 {
   std::set<Serializable*> m_updatedItems;
   
-  ServiceReference<Provider> m_hDatabaseService;
+  ServiceReference<Provider> m_hDatabaseConnection;
   bool m_isDatabaseLoaded;
 
   bool isConnectionReady();

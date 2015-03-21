@@ -12,7 +12,7 @@
 //------------------------------------------------------------------------------
 class DBSQL : public Module, public Pipe
 {
-  ServiceReference<Provider> m_hDatabaseConnection;
+  ServiceReference<Datastore::Provider> m_hDatabaseConnection;
   bool m_isDatabaseLoaded;
   bool isConnectionReady();
 

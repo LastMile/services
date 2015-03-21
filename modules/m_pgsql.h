@@ -11,10 +11,11 @@
 #include <sstream>
 #include <libpq-fe.h>
 
+using namespace Datastore;
 //------------------------------------------------------------------------------
 // PgSQLConnection
 //------------------------------------------------------------------------------
-class PgSQLConnection : public Datastore::Provider
+class PgSQLConnection : public Provider
 {
   Anope::string m_username;
   Anope::string m_password;
@@ -36,4 +37,4 @@ class PgSQLConnection : public Datastore::Provider
 };
 
 //------------------------------------------------------------------------------
-MODULE_INIT(PgSQLModule)
+//MODULE_INIT(PgSQLModule)

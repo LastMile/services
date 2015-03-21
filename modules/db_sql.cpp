@@ -111,7 +111,7 @@ void DBSQL::OnRestart() anope_override
 void DBSQL::OnReload(Configuration::Conf* _pConfig) anope_override
 {
   Configuration::Block* pBlock = _pConfig->GetModule(this);
-  m_hDatabaseConnection = ServiceReference<Provider>("Datastore::Provider", pBlock->Get<const Anope::string>("engine"));
+  m_hDatabaseConnection = ServiceReference<Datastore::Provider>("Datastore::Provider", pBlock->Get<const Anope::string>("engine"));
 }
 
 //------------------------------------------------------------------------------

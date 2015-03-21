@@ -34,7 +34,7 @@ Result PgSQLConnection::Create(Serializable* _pObject) anope_override
   
   Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
-  Data data;
+  Serialize::Data data;
   _pObject->Serialize(data);
   for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
   {
@@ -148,7 +148,7 @@ Result PgSQLConnection::Update(Serializable* _pObject) anope_override
   if (_pObject->IsTSCached())
     return result;
   
-  Data data;
+  Serialize::Data data;
   _pObject->Serialize(data);
   for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
   {
@@ -167,11 +167,11 @@ Result PgSQLConnection::Update(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Destroy(Serializable* _pObject) anope_override
 {
-    Result result;
+  Result result;
   
   Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
-  Data data;
+  Serialize::Data data;
   _pObject->Serialize(data);
   for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
   {

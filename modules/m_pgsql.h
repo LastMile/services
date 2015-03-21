@@ -12,6 +12,24 @@
 #include <libpq-fe.h>
 
 using namespace Datastore;
+class PgSQLConnection;
+
+//------------------------------------------------------------------------------
+// PgSQLModule
+//------------------------------------------------------------------------------
+class PgSQLModule : public Module, public Pipe
+{
+  std::map<Anope::string, PgSQLConnection*> m_connections;
+  
+  public:
+  
+  PgSQLModule(const Anope::string& _name, const Anope::string& _creator);
+  ~PgSQLModule();
+
+  void OnReload(Configuration::Conf* _pConfig) anope_override;
+  void OnNotify() anope_override;
+};
+
 //------------------------------------------------------------------------------
 // PgSQLConnection
 //------------------------------------------------------------------------------
@@ -37,4 +55,4 @@ class PgSQLConnection : public Provider
 };
 
 //------------------------------------------------------------------------------
-//MODULE_INIT(PgSQLModule)
+MODULE_INIT(PgSQLModule)

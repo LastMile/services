@@ -7,6 +7,75 @@
 #include "m_pgsql.h"
 
 //------------------------------------------------------------------------------
+// PgSQLModule
+//------------------------------------------------------------------------------
+PgSQLModule::PgSQLModule(const Anope::string& _name, const Anope::string& _creator)
+  : Module(_name, _creator, EXTRA | VENDOR)
+{
+    
+}
+
+//------------------------------------------------------------------------------
+PgSQLModule::~PgSQLModule()
+{
+  // Disconnect
+  for (std::map<Anope::string, PgSQLConnection*>::iterator hCurrentConnection = m_connections.begin(); hCurrentConnection != m_connections.end(); ++hCurrentConnection)
+  {
+    delete hCurrentConnection->second;
+    Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << hCurrentConnection->first;
+  }
+  m_connections.clear();
+}
+
+//------------------------------------------------------------------------------
+void PgSQLModule::OnReload(Configuration::Conf* _pConfig) anope_override
+{
+  // Disconnect
+  for (std::map<Anope::string, PgSQLConnection*>::iterator hCurrentConnection = m_connections.begin(); hCurrentConnection != m_connections.end(); ++hCurrentConnection)
+  {
+    delete hCurrentConnection->second;
+    Log(LOG_NORMAL, "pgsql") << "PgSQL: Removing server connection " << hCurrentConnection->first;
+  }
+  m_connections.clear();
+  
+  // Connect
+  Configuration::Block* pBlock = _pConfig->GetModule(this);
+  for (int i = 0; i < pBlock->CountBlock("pgsql"); ++i)
+  {
+    Configuration::Block* pPgSQLBlock = pBlock->GetBlock("pgsql", i);
+    const Anope::string& connectionName = pPgSQLBlock->Get<const Anope::string>("name", "pgsql/main");
+
+    if (this->m_connections.find(connectionName) == this->m_connections.end())
+    {
+      const Anope::string &user     = pPgSQLBlock->Get<const Anope::string>("username", "anope");
+      const Anope::string &password = pPgSQLBlock->Get<const Anope::string>("password");
+      const Anope::string &server   = pPgSQLBlock->Get<const Anope::string>("server", "127.0.0.1");
+      const Anope::string &port     = pPgSQLBlock->Get<const Anope::string>("port", "5432");
+      const Anope::string &database = pPgSQLBlock->Get<const Anope::string>("database", "anope");
+      const Anope::string &schema   = pPgSQLBlock->Get<const Anope::string>("schema", "public");
+      
+      try
+      {
+        PgSQLConnection* pConnection = new PgSQLConnection(this, connectionName, database, server, user, password, port);
+        this->m_connections.insert(std::make_pair(connectionName, pConnection));
+
+        Log(LOG_NORMAL, "pgsql") << "PgSQL: Successfully connected to server " << connectionName << " (" << server << ")";
+      }
+      catch (const Datastore::Exception& exception)
+      {
+        Log(LOG_NORMAL, "pgsql") << "PgSQL: " << exception.GetReason();
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+void PgSQLModule::OnNotify() anope_override
+{
+  
+}
+
+//------------------------------------------------------------------------------
 // PgSQLConnection
 //------------------------------------------------------------------------------
 PgSQLConnection::PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)

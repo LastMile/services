@@ -15,13 +15,11 @@ using namespace SQL;
 class DBSQLLive : public Module, public Pipe
 {
   std::set<Serializable*> m_updatedItems;
-
+  
   ServiceReference<Provider> m_hDatabaseService;
   bool m_isDatabaseLoaded;
 
-  time_t m_lastwarn;
-
-  bool CheckSQL();
+  bool isConnectionReady();
   bool isDatabaseReady();
 
   Result RunQuery(const Query& _query);

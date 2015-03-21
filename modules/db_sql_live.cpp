@@ -5,42 +5,38 @@
 #include "db_sql_live.h"
 
 //------------------------------------------------------------------------------
-bool DBSQLLive::CheckSQL()
+bool DBSQLLive::isDatabaseReady()
 {
-  if (m_hDatabaseService)
+  if (isConnectionReady())
   {
     if (Anope::ReadOnly)
     {
       Anope::ReadOnly = false;
-      Log() << "Found SQL again, going out of readonly mode...";
+      Log() << "Database Ready";
     }
 
     return true;
   }
   else
   {
-    if (Anope::CurTime - Config->GetBlock("options")->Get<time_t>("updatetimeout", "5m") > m_lastwarn)
-    {
-      Log() << "Unable to locate SQL reference, going to readonly...";
-      Anope::ReadOnly = true;
-      m_lastwarn = Anope::CurTime;
-    }
-
+    Log() << "Failed to connect to database - Read Only Mode Active";
+    Anope::ReadOnly = true;
+    
     return false;
   }
 }
 
 //------------------------------------------------------------------------------
-bool DBSQLLive::isDatabaseReady()
+bool DBSQLLive::isConnectionReady()
 {
   return m_isDatabaseLoaded && m_hDatabaseService;
 }
 
 //------------------------------------------------------------------------------
-Result DBSQLLive::RunQueryResult(const Query& _query)
+Result DBSQLLive::RunQuery(const Query& _query)
 {
-  if (!this->CheckSQL())
-    throw SQL::Exception("No SQL!");
+  if (!this->isDatabaseReady())
+    throw SQL::Exception("Database not connected!");
 
   Result result = m_hDatabaseService->RunQuery(_query);
 
@@ -56,8 +52,7 @@ Result DBSQLLive::RunQueryResult(const Query& _query)
 DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creator)
   : Module(_modname, _creator, DATABASE | VENDOR),
   m_hDatabaseService("", ""),
-  m_isDatabaseLoaded(false),
-  m_lastwarn(NULL)
+  m_isDatabaseLoaded(false)
 {
   if (ModuleManager::FindFirstOf(DATABASE) != this)
     throw ModuleException("If db_sql_live is loaded it must be the first database module loaded.");
@@ -66,7 +61,7 @@ DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creato
 //------------------------------------------------------------------------------
 void DBSQLLive::OnNotify() anope_override
 {
-  if (!this->isDatabaseReady())
+  if (!this->isConnectionReady())
     return;
   
   Log(LOG_DEBUG) << "DBSQLLive::OnNotify";
@@ -137,7 +132,7 @@ void DBSQLLive::OnReload(Configuration::Conf* _pConfig) anope_override
 //------------------------------------------------------------------------------
 void DBSQLLive::OnSerializableConstruct(Serializable* _pObject) anope_override
 {
-  if (!this->isDatabaseReady())
+  if (!this->isConnectionReady())
     return;
 
   Log(LOG_DEBUG) << "DBSQLLive::OnSerializableConstruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
@@ -159,7 +154,7 @@ void DBSQLLive::OnSerializableConstruct(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
 {
-  if (!this->isDatabaseReady())
+  if (!this->isConnectionReady())
     return;
   
   Log(LOG_DEBUG) << "DBSQLLive::OnSerializableDestruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
@@ -188,7 +183,7 @@ void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 {
-  if (!this->isDatabaseReady() || _pObject->GetTimestamp() == Anope::CurTime)
+  if (!this->isConnectionReady() || _pObject->GetTimestamp() == Anope::CurTime)
     return;
   
   Log(LOG_DEBUG) << "DBSQLLive::OnSerializeCheck - " << _pObject->GetName();
@@ -273,7 +268,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 //------------------------------------------------------------------------------
 void DBSQLLive::OnSerializableUpdate(Serializable* _pObject) anope_override
 {
-  if (!this->isDatabaseReady() || _pObject->IsTSCached())
+  if (!this->isConnectionReady() || _pObject->IsTSCached())
     return;
 
   Log(LOG_DEBUG) << "DBSQLLive::OnSerializableUpdate - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);

@@ -20,7 +20,6 @@ class DBSQLLive : public Module, public Pipe
   bool m_isDatabaseLoaded;
 
   time_t m_lastwarn;
-  bool m_readyOnly;
 
   bool CheckSQL();
   bool isDatabaseReady();

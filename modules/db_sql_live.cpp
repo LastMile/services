@@ -9,9 +9,9 @@ bool DBSQLLive::CheckSQL()
 {
   if (m_hDatabaseService)
   {
-    if (Anope::ReadOnly && m_readyOnly)
+    if (Anope::ReadOnly)
     {
-      Anope::ReadOnly = m_readyOnly = false;
+      Anope::ReadOnly = false;
       Log() << "Found SQL again, going out of readonly mode...";
     }
 
@@ -22,7 +22,7 @@ bool DBSQLLive::CheckSQL()
     if (Anope::CurTime - Config->GetBlock("options")->Get<time_t>("updatetimeout", "5m") > m_lastwarn)
     {
       Log() << "Unable to locate SQL reference, going to readonly...";
-      Anope::ReadOnly = m_readyOnly = true;
+      Anope::ReadOnly = true;
       m_lastwarn = Anope::CurTime;
     }
 
@@ -64,8 +64,7 @@ DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creato
   : Module(_modname, _creator, DATABASE | VENDOR),
   m_hDatabaseService("", ""),
   m_isDatabaseLoaded(false),
-  m_lastwarn(NULL),
-  m_readyOnly(false)
+  m_lastwarn(NULL)
 {
   if (ModuleManager::FindFirstOf(DATABASE) != this)
     throw ModuleException("If db_sql_live is loaded it must be the first database module loaded.");

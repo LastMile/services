@@ -24,8 +24,7 @@ class DBSQLLive : public Module, public Pipe
   bool CheckSQL();
   bool isDatabaseReady();
 
-  void RunQuery(const Query& _query);
-  Result RunQueryResult(const Query& _query);
+  Result RunQuery(const Query& _query);
 
  public:
   DBSQLLive(const Anope::string& _modname, const Anope::string& _creator);

@@ -37,13 +37,6 @@ bool DBSQLLive::isDatabaseReady()
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::RunQuery(const Query& _query)
-{
-  // TODO: Can this be threaded?
-  this->RunQueryResult(_query);
-}
-
-//------------------------------------------------------------------------------
 Result DBSQLLive::RunQueryResult(const Query& _query)
 {
   if (!this->CheckSQL())
@@ -100,9 +93,9 @@ void DBSQLLive::OnNotify() anope_override
 //     std::vector<Query> create = m_hDatabaseService->CreateTable(s_type->GetName(), data);
 
 //     for (unsigned int i = 0; i < create.size(); ++i)
-//       this->RunQueryResult(create[i]);
+//       this->RunQuery(create[i]);
 
-//     Result res = this->RunQueryResult(m_hDatabaseService->BuildInsert(s_type->GetName(), pObject->id, data));
+//     Result res = this->RunQuery(m_hDatabaseService->BuildInsert(s_type->GetName(), pObject->id, data));
 
 //     if (res.GetID() && pObject->id != res.GetID())
 //     {
@@ -204,7 +197,7 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 
 //   _pObject->UpdateTimestamp();
 
-//   Result res = this->RunQueryResult(query);
+//   Result res = this->RunQuery(query);
 
 //   bool clear_null = false;
 //   for (int i = 0; i < res.Rows(); ++i)

@@ -49,6 +49,93 @@ Result DBSQL::RunQuery(const Query& _query)
 }
 
 //------------------------------------------------------------------------------
+Result DBSQL::Create(Serializable* _pObject)
+{
+  Result result;
+  
+  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  
+  Data data;
+  _pObject->Serialize(data);
+  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
+  {
+    Anope::string buf;
+    *it->second >> buf;
+    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
+  }
+  
+  //_pObject->UpdateTS();
+  //m_updatedItems.insert(_pObject);
+  //this->Notify();
+  
+  
+  return result;
+}
+
+//------------------------------------------------------------------------------
+Result DBSQL::Read(Serializable* _pObject)
+{
+  Result result;
+  return result;
+}
+
+//------------------------------------------------------------------------------
+Result DBSQL::Update(Serializable* _pObject)
+{
+  Result result;
+  
+  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+
+  if (_pObject->IsTSCached())
+    return result;
+  
+  Data data;
+  _pObject->Serialize(data);
+  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
+  {
+    Anope::string buf;
+    *it->second >> buf;
+    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
+  }
+
+//   _pObject->UpdateTS();
+//   m_updatedItems.insert(_pObject);
+//   this->Notify();
+
+  return result;
+}
+
+//------------------------------------------------------------------------------
+Result DBSQL::Destroy(Serializable* _pObject)
+{
+  Result result;
+  
+  Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  
+  Data data;
+  _pObject->Serialize(data);
+  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
+  {
+    Anope::string buf;
+    *it->second >> buf;
+    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
+  }
+
+  //  Serialize::Type *s_type = _pObject->GetSerializableType();
+  //  if (s_type)
+  //  {
+  //    if (_pObject->id > 0)
+  //      this->RunQuery("DELETE FROM \"" + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
+
+  //    s_type->objects.erase(_pObject->id);
+  //  }
+  //  m_updatedItems.erase(_pObject);
+  
+  
+  return result;
+}
+
+//------------------------------------------------------------------------------
 DBSQL::DBSQL(const Anope::string& _modname, const Anope::string& _creator)
   : Module(_modname, _creator, DATABASE | VENDOR),
   m_hDatabaseService("", ""),
@@ -66,6 +153,13 @@ void DBSQL::OnNotify() anope_override
   
   Log(LOG_DEBUG) << "DBSQL::OnNotify";
 
+  // Data
+  // next if IsCached
+  // UpdateCache
+  // next if no Serialize::Type
+  // Save
+  // if new item update ID
+  
 //   std::set<Serializable*>::iterator itemsIterator;
 //   for (itemsIterator = m_updatedItems.begin(); itemsIterator != m_updatedItems.end(); ++itemsIterator)
 //   {
@@ -135,49 +229,7 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
   if (!this->isConnectionReady())
     return;
 
-  Log(LOG_DEBUG) << "DBSQL::OnSerializableConstruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-  
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-  {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
-  }
-  
-  //_pObject->UpdateTS();
-  //m_updatedItems.insert(_pObject);
-  //this->Notify();
-}
-
-//------------------------------------------------------------------------------
-void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
-{
-  if (!this->isConnectionReady())
-    return;
-  
-  Log(LOG_DEBUG) << "DBSQL::OnSerializableDestruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-  
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-  {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
-  }
-  
-
-//  Serialize::Type *s_type = _pObject->GetSerializableType();
-//  if (s_type)
-//  {
-//    if (_pObject->id > 0)
-//      this->RunQuery("DELETE FROM \"" + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
-
-//    s_type->objects.erase(_pObject->id);
-//  }
-//  m_updatedItems.erase(_pObject);
+  this->Create(_pObject);
 }
 
 //------------------------------------------------------------------------------
@@ -268,22 +320,18 @@ void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 //------------------------------------------------------------------------------
 void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
 {
-  if (!this->isConnectionReady() || _pObject->IsTSCached())
+  if (!this->isConnectionReady())
     return;
-
-  Log(LOG_DEBUG) << "DBSQL::OnSerializableUpdate - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-  {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
-  }
-
-//   _pObject->UpdateTS();
-//   m_updatedItems.insert(_pObject);
-//   this->Notify();
-
+  this->Update(_pObject);
 }
+
+//------------------------------------------------------------------------------
+void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
+{
+  if (!this->isConnectionReady())
+    return;
+  
+  this->Destroy(_pObject);
+}
+

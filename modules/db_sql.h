@@ -23,6 +23,11 @@ class DBSQL : public Module, public Pipe
   bool isDatabaseReady();
 
   Result RunQuery(const Query& _query);
+  
+  Result Create(Serializable* _pObject);
+  Result Read(Serializable* _pObject);
+  Result Update(Serializable* _pObject);
+  Result Destroy(Serializable* _pObject);
 
  public:
   DBSQL(const Anope::string& _modname, const Anope::string& _creator);
@@ -34,9 +39,9 @@ class DBSQL : public Module, public Pipe
   void OnNotify() anope_override;
 
   void OnSerializableConstruct(Serializable* _pObject) anope_override;
-  void OnSerializableDestruct(Serializable* _pObject) anope_override;
   void OnSerializeCheck(Serialize::Type* _pObject) anope_override;
   void OnSerializableUpdate(Serializable* _pObject) anope_override;
+  void OnSerializableDestruct(Serializable* _pObject) anope_override;
 };
 
 //------------------------------------------------------------------------------

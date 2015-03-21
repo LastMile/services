@@ -1,11 +1,11 @@
 //==============================================================================
-// File:	db_sql_live.cpp
+// File:	db_sql.cpp
 // Purpose: Provide bi-directional commication based on sql store
 //==============================================================================
-#include "db_sql_live.h"
+#include "db_sql.h"
 
 //------------------------------------------------------------------------------
-bool DBSQLLive::isDatabaseReady()
+bool DBSQL::isDatabaseReady()
 {
   if (isConnectionReady())
   {
@@ -27,13 +27,13 @@ bool DBSQLLive::isDatabaseReady()
 }
 
 //------------------------------------------------------------------------------
-bool DBSQLLive::isConnectionReady()
+bool DBSQL::isConnectionReady()
 {
   return m_isDatabaseLoaded && m_hDatabaseService;
 }
 
 //------------------------------------------------------------------------------
-Result DBSQLLive::RunQuery(const Query& _query)
+Result DBSQL::RunQuery(const Query& _query)
 {
   if (!this->isDatabaseReady())
     throw SQL::Exception("Database not connected!");
@@ -41,30 +41,30 @@ Result DBSQLLive::RunQuery(const Query& _query)
   Result result = m_hDatabaseService->RunQuery(_query);
 
   if (!result.GetError().empty())
-    Log(LOG_DEBUG) << "SQL-live got error " << result.GetError() << " for " + result.finished_query;
+    Log(LOG_DEBUG) << "DBSQL got error " << result.GetError() << " for " + result.finished_query;
   else
-    Log(LOG_DEBUG) << "SQL-live got " << result.Rows() << " rows for " << result.finished_query;
+    Log(LOG_DEBUG) << "DBSQL got " << result.Rows() << " rows for " << result.finished_query;
 
   return result;
 }
 
 //------------------------------------------------------------------------------
-DBSQLLive::DBSQLLive(const Anope::string& _modname, const Anope::string& _creator)
+DBSQL::DBSQL(const Anope::string& _modname, const Anope::string& _creator)
   : Module(_modname, _creator, DATABASE | VENDOR),
   m_hDatabaseService("", ""),
   m_isDatabaseLoaded(false)
 {
   if (ModuleManager::FindFirstOf(DATABASE) != this)
-    throw ModuleException("If db_sql_live is loaded it must be the first database module loaded.");
+    throw ModuleException("If db_sql is loaded it must be the first database module loaded.");
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnNotify() anope_override
+void DBSQL::OnNotify() anope_override
 {
   if (!this->isConnectionReady())
     return;
   
-  Log(LOG_DEBUG) << "DBSQLLive::OnNotify";
+  Log(LOG_DEBUG) << "DBSQL::OnNotify";
 
 //   std::set<Serializable*>::iterator itemsIterator;
 //   for (itemsIterator = m_updatedItems.begin(); itemsIterator != m_updatedItems.end(); ++itemsIterator)
@@ -104,38 +104,38 @@ void DBSQLLive::OnNotify() anope_override
 }
 
 //------------------------------------------------------------------------------
-EventReturn DBSQLLive::OnLoadDatabase() anope_override
+EventReturn DBSQL::OnLoadDatabase() anope_override
 {
   m_isDatabaseLoaded = true;
   return EVENT_STOP;
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnShutdown() anope_override
+void DBSQL::OnShutdown() anope_override
 {
   m_isDatabaseLoaded = false;
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnRestart() anope_override
+void DBSQL::OnRestart() anope_override
 {
   m_isDatabaseLoaded = false;
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnReload(Configuration::Conf* _pConfig) anope_override
+void DBSQL::OnReload(Configuration::Conf* _pConfig) anope_override
 {
   Configuration::Block* pBlock = _pConfig->GetModule(this);
   m_hDatabaseService = ServiceReference<Provider>("SQL::Provider", pBlock->Get<const Anope::string>("engine"));
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableConstruct(Serializable* _pObject) anope_override
+void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady())
     return;
 
-  Log(LOG_DEBUG) << "DBSQLLive::OnSerializableConstruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "DBSQL::OnSerializableConstruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
   Data data;
   _pObject->Serialize(data);
@@ -152,12 +152,12 @@ void DBSQLLive::OnSerializableConstruct(Serializable* _pObject) anope_override
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
+void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady())
     return;
   
-  Log(LOG_DEBUG) << "DBSQLLive::OnSerializableDestruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "DBSQL::OnSerializableDestruct - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
   Data data;
   _pObject->Serialize(data);
@@ -181,12 +181,12 @@ void DBSQLLive::OnSerializableDestruct(Serializable* _pObject) anope_override
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
+void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 {
   if (!this->isConnectionReady() || _pObject->GetTimestamp() == Anope::CurTime)
     return;
   
-  Log(LOG_DEBUG) << "DBSQLLive::OnSerializeCheck - " << _pObject->GetName();
+  Log(LOG_DEBUG) << "DBSQL::OnSerializeCheck - " << _pObject->GetName();
 
 //   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseService->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
@@ -266,12 +266,12 @@ void DBSQLLive::OnSerializeCheck(Serialize::Type* _pObject) anope_override
 }
 
 //------------------------------------------------------------------------------
-void DBSQLLive::OnSerializableUpdate(Serializable* _pObject) anope_override
+void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady() || _pObject->IsTSCached())
     return;
 
-  Log(LOG_DEBUG) << "DBSQLLive::OnSerializableUpdate - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "DBSQL::OnSerializableUpdate - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
   Data data;
   _pObject->Serialize(data);

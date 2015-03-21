@@ -1,5 +1,5 @@
 //==============================================================================
-// File:	db_sql_live.h
+// File:	db_sql.h
 // Purpose: Provide bi-directional commication based on sql store
 //==============================================================================
 #pragma once
@@ -10,9 +10,9 @@
 using namespace SQL;
 
 //------------------------------------------------------------------------------
-// DBSQLLive
+// DBSQL
 //------------------------------------------------------------------------------
-class DBSQLLive : public Module, public Pipe
+class DBSQL : public Module, public Pipe
 {
   std::set<Serializable*> m_updatedItems;
   
@@ -25,7 +25,7 @@ class DBSQLLive : public Module, public Pipe
   Result RunQuery(const Query& _query);
 
  public:
-  DBSQLLive(const Anope::string& _modname, const Anope::string& _creator);
+  DBSQL(const Anope::string& _modname, const Anope::string& _creator);
 
   EventReturn OnLoadDatabase() anope_override;
   void OnShutdown() anope_override;
@@ -40,4 +40,4 @@ class DBSQLLive : public Module, public Pipe
 };
 
 //------------------------------------------------------------------------------
-MODULE_INIT(DBSQLLive)
+MODULE_INIT(DBSQL)

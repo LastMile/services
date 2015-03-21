@@ -9,6 +9,7 @@ RUN apt-get update && \
     tar -xzf *.tar.gz && \
     cd anope-* && \
     mv modules/extra/m_ssl_gnutls.cpp modules/ && \
+    mv /tmp/modules/datastore.h modules/ && \
     mv /tmp/modules/m_pgsql.h modules/ && \
     mv /tmp/modules/m_pgsql.cpp modules/ && \
     mv /tmp/modules/db_sql.h modules/database/ && \

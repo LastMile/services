@@ -15,6 +15,9 @@ class DBSQL : public Module, public Pipe
   ServiceReference<Datastore::Provider> m_hDatabaseConnection;
   bool m_isDatabaseLoaded;
   bool isConnectionReady();
+  
+  enum EACTION { CREATE, UPDATE };
+  std::map<Serializable*, EACTION> m_changeList;
 
  public:
   DBSQL(const Anope::string& _modname, const Anope::string& _creator);

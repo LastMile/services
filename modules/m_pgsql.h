@@ -28,6 +28,7 @@ class PgSQLModule : public Module, public Pipe
 
   void OnReload(Configuration::Conf* _pConfig) anope_override;
   void OnNotify() anope_override;
+  void OnModuleUnload(User* _pUser, Module* _pModule) anope_override {}
 };
 
 //------------------------------------------------------------------------------

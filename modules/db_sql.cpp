@@ -44,20 +44,21 @@ void DBSQL::OnNotify() anope_override
   
   Log(LOG_DEBUG) << "DBSQL::OnNotify";
 
-  // Data
-  // next if IsCached
-  // UpdateCache
-  // next if no Serialize::Type
-  // Save
-  // if new item update ID
+  for (std::map<Serializable*, EACTION>::iterator it = m_changeList.begin(); it != m_changeList.end(); ++it)
+  {
+    switch(it->second)
+    {
+    case CREATE:
+      m_hDatabaseConnection->Create(it->first);
+      break;
+      
+    case UPDATE:
+      m_hDatabaseConnection->Update(it->first);
+      break;
+    }
+  }
   
-//   std::set<Serializable*>::iterator itemsIterator;
-//   for (itemsIterator = m_updatedItems.begin(); itemsIterator != m_updatedItems.end(); ++itemsIterator)
-//   {
-//     Serializable* pObject = *itemsIterator;
-//     Data data;
-
-//     pObject->Serialize(data);
+  m_changeList.clear();
 
 //     if (pObject->IsCached(data))
 //       continue;
@@ -69,14 +70,6 @@ void DBSQL::OnNotify() anope_override
 //     if (!s_type)
 //       continue;
 
-//     // TODO: Move the concerns of prefix to the database service
-//     std::vector<Query> create = m_hDatabaseConnection->CreateTable(s_type->GetName(), data);
-
-//     for (unsigned int i = 0; i < create.size(); ++i)
-//       this->RunQuery(create[i]);
-
-//     Result res = this->RunQuery(m_hDatabaseConnection->BuildInsert(s_type->GetName(), pObject->id, data));
-
 //     if (res.GetID() && pObject->id != res.GetID())
 //     {
 //       /* In this case object is new, so place it into the object map */
@@ -85,7 +78,6 @@ void DBSQL::OnNotify() anope_override
 //     }
 //   }
 
-//   m_updatedItems.clear();
 }
 
 //------------------------------------------------------------------------------
@@ -120,7 +112,8 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
   if (!this->isConnectionReady())
     return;
 
-  m_hDatabaseConnection->Create(_pObject);
+  m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, CREATE));
+  Notify();
   
   //_pObject->UpdateTS();
 }
@@ -140,7 +133,8 @@ void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
   if (!this->isConnectionReady())
     return;
   
-  m_hDatabaseConnection->Update(_pObject);
+  m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, UPDATE));
+  Notify();
   
   // _pObject->UpdateTS();
 }
@@ -150,7 +144,8 @@ void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady())
     return;
-  
+
+  m_changeList.erase(_pObject);
   m_hDatabaseConnection->Destroy(_pObject);
   
   //  Serialize::Type *s_type = _pObject->GetSerializableType();

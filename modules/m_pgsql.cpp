@@ -177,6 +177,8 @@ Anope::string PgSQLConnection::BuildCreateTableQuery(Serializable* _pObject)
 //------------------------------------------------------------------------------
 Anope::string PgSQLConnection::BuildInsertRowQuery(Serializable* _pObject)
 {
+  Log(LOG_DEBUG) << "BuildInsertRowQuery - " + _pObject->GetSerializableType()->GetName();
+  
   Data serialized_data;
   _pObject->Serialize(serialized_data);
   

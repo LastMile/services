@@ -104,15 +104,74 @@ bool PgSQLConnection::isConnected()
   {
     try
     {
-      this->Connect();
+      Connect();
     }
     catch (const Datastore::Exception &)
     {
+      Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQerrorMessage(m_pConnection);
       return false;
     }
   }
   
   return true;
+}
+
+//------------------------------------------------------------------------------
+Anope::string PgSQLConnection::EscapeQuery(const Anope::string& _rawQuery)
+{
+  Anope::string escapedQuery(_rawQuery.length() * 2 + 1, '\0');
+  int error;
+  
+  PQescapeStringConn(m_pConnection, const_cast<char*>(escapedQuery.c_str()), _rawQuery.c_str(), _rawQuery.length(), &error);
+  
+  if (error)
+    Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQerrorMessage(m_pConnection);
+
+  return escapedQuery;
+}
+
+//------------------------------------------------------------------------------
+Result PgSQLConnection::Query(const Anope::string& _rawQuery)
+{
+  if(!isConnected())
+    return Result();
+  
+  Anope::string escapedQuery= EscapeQuery(_rawQuery);
+  
+  if(escapedQuery.length() < _rawQuery.length())
+    return Result();
+  
+  PGresult* pResult = PQexec(m_pConnection, escapedQuery.c_str());
+  
+  if(pResult)
+    Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQresultErrorMessage(pResult);
+
+  return Result();
+}
+
+//------------------------------------------------------------------------------
+Anope::string PgSQLConnection::CreateTableQuery(Serializable* _pObject)
+{
+  Data serialized_data;
+  _pObject->Serialize(serialized_data);
+
+  Anope::string tableQuery = "";
+  tableQuery += "CREATE TABLE IF NOT EXISTS \"";
+  tableQuery += _pObject->GetSerializableType()->GetName();
+  tableQuery += "\" (";
+  tableQuery += "\"id\" serial primary key, ";
+  
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
+  {
+    tableQuery += "\"";
+    tableQuery += it->first;
+    tableQuery += "\" character varying, ";
+  }
+  
+  tableQuery += "\"created_at\" timestamp NOT NULL, \"updated_at\" timestamp NOT NULL);";
+  
+  Log(LOG_DEBUG) << tableQuery;
+  return tableQuery;
 }
 
 //------------------------------------------------------------------------------
@@ -263,11 +322,25 @@ Result PgSQLConnection::Update(Serializable* _pObject) anope_override
     *it->second >> buf;
     Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
   }
+  
+  CreateTableQuery(_pObject);
 
 //   _pObject->UpdateTS();
 //   m_updatedItems.insert(_pObject);
 //   this->Notify();
 
+// DBSQL::Update - BotInfo:0                                                                                                                                                       
+//       created:1426987258                                                                                                                                                        
+//       host:services.lastmile                                                                                                                                                    
+//       nick:ChanServ                                                                                                                                                             
+//       oper_only:0                                                                                                                                                               
+//       realname:Channel Registration Service                                                                                                                                     
+//       user:services    
+  
+  
+//    t.datetime "created_at", null: false
+//    t.datetime "updated_at", null: false
+      
   return result;
 }
 

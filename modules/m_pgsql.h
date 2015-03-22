@@ -46,10 +46,12 @@ class PgSQLConnection : public Provider
   
   void Connect();
   void Disconnect();
-  
   bool isConnected();
   
-
+  Anope::string EscapeQuery(const Anope::string& _rawQuery);
+  Result Query(const Anope::string& _rawQuery);
+  Anope::string CreateTableQuery(Serializable* _pObject);
+  
  public:
   PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
   ~PgSQLConnection();

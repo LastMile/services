@@ -108,7 +108,7 @@ bool PgSQLConnection::isConnected()
     }
     catch (const Datastore::Exception &)
     {
-      Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQerrorMessage(m_pConnection);
+      Log(LOG_DEBUG) << "PgSQL: " << PQerrorMessage(m_pConnection);
       return false;
     }
   }
@@ -119,14 +119,17 @@ bool PgSQLConnection::isConnected()
 //------------------------------------------------------------------------------
 Anope::string PgSQLConnection::EscapeQuery(const Anope::string& _rawQuery)
 {
-  Anope::string escapedQuery(_rawQuery.length() * 2 + 1, '\0');
+  char* pEscapedBuffer = new char[_rawQuery.length() * 2 + 1]();
   int error;
   
-  PQescapeStringConn(m_pConnection, const_cast<char*>(escapedQuery.c_str()), _rawQuery.c_str(), _rawQuery.length(), &error);
+  PQescapeStringConn(m_pConnection, pEscapedBuffer, _rawQuery.c_str(), _rawQuery.length(), &error);
   
   if (error)
-    Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQerrorMessage(m_pConnection);
+    Log(LOG_DEBUG) << "PgSQL: " << PQerrorMessage(m_pConnection);
 
+  Anope::string escapedQuery(pEscapedBuffer);
+  delete[] pEscapedBuffer;
+  
   return escapedQuery;
 }
 
@@ -139,7 +142,7 @@ Result PgSQLConnection::Query(const Anope::string& _rawQuery)
   PGresult* pResult = PQexec(m_pConnection, _rawQuery.c_str());
   
   if(pResult)
-    Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQresultErrorMessage(pResult);
+    Log(LOG_DEBUG) << "PgSQL: " << PQresultErrorMessage(pResult);
 
   return Result();
 }
@@ -209,8 +212,6 @@ Anope::string PgSQLConnection::BuildInsertRowQuery(Serializable* _pObject)
   }
   
   rawQuery += "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING \"id\"; ";
-  
-  Log(LOG_DEBUG) << rawQuery;
   
   return rawQuery;
 }

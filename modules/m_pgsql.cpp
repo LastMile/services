@@ -163,6 +163,9 @@ Anope::string PgSQLConnection::CreateTableQuery(Serializable* _pObject)
   
   for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
   {
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+    
     tableQuery += "\"";
     tableQuery += it->first;
     tableQuery += "\" character varying, ";
@@ -196,24 +199,52 @@ PgSQLConnection::~PgSQLConnection()
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Create(Serializable* _pObject) anope_override
 {
+  if(_pObject->id != 0)
+    return Update(_pObject);
+  
   Result result;
+  Data serialized_data;
+  _pObject->Serialize(serialized_data);
+
+  Anope::string rawQuery = CreateTableQuery(_pObject);
+  rawQuery += "INSERT INTO \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\" (";
   
-  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-  
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
   {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+    
+    rawQuery += "\"";
+    rawQuery += it->first;
+    rawQuery += "\", ";
   }
+  
+  rawQuery += "\"created_at\", \"updated_at\") VALUES (";
+  
+  
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
+  {
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+
+    Anope::string buffer;
+    *it->second >> buffer;
+    
+    rawQuery += "\"";
+    rawQuery += buffer;
+    rawQuery += "\", ";
+  }
+  
+  rawQuery += "current_timestamp, current_timestamp) RETURNING \"id\";";
+
   
   //_pObject->UpdateTS();
   //m_updatedItems.insert(_pObject);
   //this->Notify();
   
-  
+  Log(LOG_DEBUG) << rawQuery;
   return result;
 }
 
@@ -307,6 +338,9 @@ Result PgSQLConnection::Read(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Update(Serializable* _pObject) anope_override
 {
+  if(_pObject->id == 0)
+    return Create(_pObject);
+  
   Result result;
   
   Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
@@ -318,13 +352,9 @@ Result PgSQLConnection::Update(Serializable* _pObject) anope_override
   _pObject->Serialize(data);
   for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
   {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
+    Log(LOG_DEBUG) << "\t" << it->first << ":" << it->second;
   }
   
-  CreateTableQuery(_pObject);
-
 //   _pObject->UpdateTS();
 //   m_updatedItems.insert(_pObject);
 //   this->Notify();

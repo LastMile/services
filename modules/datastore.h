@@ -85,13 +85,6 @@ namespace Datastore
 	};
 
   //------------------------------------------------------------------------------
-  // Result
-  //------------------------------------------------------------------------------
-	class Result
-	{
-	};
-
-  //------------------------------------------------------------------------------
   // Provider
   //------------------------------------------------------------------------------
 	class Provider : public Service
@@ -99,10 +92,10 @@ namespace Datastore
 	 public:
 		Provider(Module* _pOwner, const Anope::string& _name) : Service(_pOwner, "Datastore::Provider", _name) { }
 
-    virtual Result Create(Serializable* _pObject) = 0;
-    virtual Result Read(Serializable* _pObject) = 0;
-    virtual Result Update(Serializable* _pObject) = 0;
-    virtual Result Destroy(Serializable* _pObject) = 0;
+    virtual void Create(Serializable* _pObject) = 0;
+    virtual void Read(Serializable* _pObject) = 0;
+    virtual void Update(Serializable* _pObject) = 0;
+    virtual void Destroy(Serializable* _pObject) = 0;
 	};
 
 }

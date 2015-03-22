@@ -117,7 +117,21 @@ bool PgSQLConnection::isConnected()
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLConnection::EscapeQuery(const Anope::string& _rawQuery)
+void PgSQLConnection::Query(const Anope::string& _rawQuery)
+{
+  if(!isConnected())
+    return;
+  
+  PGresult* pResult = PQexec(m_pConnection, _rawQuery.c_str());
+  
+  if(pResult)
+    Log(LOG_DEBUG) << "PgSQL: " << PQresultErrorMessage(pResult);
+
+  return;
+}
+
+//------------------------------------------------------------------------------
+Anope::string PgSQLConnection::EscapeString(const Anope::string& _rawQuery)
 {
   char* pEscapedBuffer = new char[_rawQuery.length() * 2 + 1]();
   int error;
@@ -131,20 +145,6 @@ Anope::string PgSQLConnection::EscapeQuery(const Anope::string& _rawQuery)
   delete[] pEscapedBuffer;
   
   return escapedQuery;
-}
-
-//------------------------------------------------------------------------------
-Result PgSQLConnection::Query(const Anope::string& _rawQuery)
-{
-  if(!isConnected())
-    return Result();
-  
-  PGresult* pResult = PQexec(m_pConnection, _rawQuery.c_str());
-  
-  if(pResult)
-    Log(LOG_DEBUG) << "PgSQL: " << PQresultErrorMessage(pResult);
-
-  return Result();
 }
 
 //------------------------------------------------------------------------------
@@ -207,7 +207,7 @@ Anope::string PgSQLConnection::BuildInsertRowQuery(Serializable* _pObject)
     *it->second >> buffer;
     
     rawQuery += "'";
-    rawQuery += EscapeQuery(buffer);
+    rawQuery += EscapeString(buffer);
     rawQuery += "', ";
   }
   
@@ -238,7 +238,7 @@ Anope::string PgSQLConnection::BuildUpdateRowQuery(Serializable* _pObject)
     rawQuery += "\"";
     rawQuery += it->first;
     rawQuery += "\" = '";
-    rawQuery += EscapeQuery(buffer);
+    rawQuery += EscapeString(buffer);
     rawQuery += "', ";
   }
   
@@ -289,20 +289,18 @@ PgSQLConnection::~PgSQLConnection()
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLConnection::Create(Serializable* _pObject) anope_override
+void PgSQLConnection::Create(Serializable* _pObject) anope_override
 {
-  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName();
-  
   if(_pObject->id != 0)
     return Update(_pObject);
   
+  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName();
+  
   return Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
-
-  //_pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLConnection::Read(Serializable* _pObject) anope_override
+void PgSQLConnection::Read(Serializable* _pObject) anope_override
 {
   Log(LOG_DEBUG) << "DBSQL::Read";
 
@@ -383,32 +381,27 @@ Result PgSQLConnection::Read(Serializable* _pObject) anope_override
 //   }
   
   
-  return Result();
+  return;
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLConnection::Update(Serializable* _pObject) anope_override
+void PgSQLConnection::Update(Serializable* _pObject) anope_override
 {
-  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-  
   if(_pObject->id == 0)
     return Create(_pObject);
+  
+  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
 
   return Query(BuildUpdateRowQuery(_pObject));
-  
-  // _pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
-Result PgSQLConnection::Destroy(Serializable* _pObject) anope_override
+void PgSQLConnection::Destroy(Serializable* _pObject) anope_override
 {
-  Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-
   if(_pObject->id == 0)
-    return Result();
+    return;
+  
+  Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
   return Query(BuildDestroyRowQuery(_pObject));
-  
-  //  Serialize::Type *s_type = _pObject->GetSerializableType();
-  //   s_type->objects.erase(_pObject->id);
 }

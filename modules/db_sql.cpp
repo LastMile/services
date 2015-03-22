@@ -121,6 +121,8 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
     return;
 
   m_hDatabaseConnection->Create(_pObject);
+  
+  //_pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
@@ -139,6 +141,8 @@ void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
     return;
   
   m_hDatabaseConnection->Update(_pObject);
+  
+  // _pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
@@ -148,5 +152,8 @@ void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
     return;
   
   m_hDatabaseConnection->Destroy(_pObject);
+  
+  //  Serialize::Type *s_type = _pObject->GetSerializableType();
+  //   s_type->objects.erase(_pObject->id);
 }
 

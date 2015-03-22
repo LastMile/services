@@ -48,9 +48,9 @@ class PgSQLConnection : public Provider
   void Disconnect();
   bool isConnected();
   
-  Anope::string EscapeQuery(const Anope::string& _rawQuery);
-  Result Query(const Anope::string& _rawQuery);
+  void Query(const Anope::string& _rawQuery);
   
+  Anope::string EscapeString(const Anope::string& _rawQuery);
   Anope::string BuildCreateTableQuery(Serializable* _pObject);
   Anope::string BuildInsertRowQuery(Serializable* _pObject);
   Anope::string BuildUpdateRowQuery(Serializable* _pObject);
@@ -60,10 +60,10 @@ class PgSQLConnection : public Provider
   PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);
   ~PgSQLConnection();
 
-  Result Create(Serializable* _pObject) anope_override;
-  Result Read(Serializable* _pObject) anope_override;
-  Result Update(Serializable* _pObject) anope_override;
-  Result Destroy(Serializable* _pObject) anope_override;
+  void Create(Serializable* _pObject) anope_override;
+  void Read(Serializable* _pObject) anope_override;
+  void Update(Serializable* _pObject) anope_override;
+  void Destroy(Serializable* _pObject) anope_override;
 };
 
 //------------------------------------------------------------------------------

@@ -78,6 +78,44 @@ void PgSQLModule::OnNotify() anope_override
 //------------------------------------------------------------------------------
 // PgSQLConnection
 //------------------------------------------------------------------------------
+void PgSQLConnection::Connect()
+{
+  // TODO: Add Timeout
+  // "-c connect_timeout=5"
+  m_pConnection = PQsetdbLogin(m_hostname.c_str(), m_port.c_str(), NULL, NULL, m_database.c_str(), m_username.c_str(), m_password.c_str());
+
+  if (!m_pConnection || PQstatus(m_pConnection) == CONNECTION_BAD)
+    throw Datastore::Exception("Unable to connect to the postgres server " + this->name + ": " + PQerrorMessage(m_pConnection));
+
+  Log(LOG_DEBUG) << "Successfully connected to the postgres server " << this->name << " at " << this->m_hostname << ":" << this->m_port;
+}
+
+//------------------------------------------------------------------------------
+void PgSQLConnection::Disconnect()
+{
+  PQfinish(m_pConnection);
+  m_pConnection = NULL;
+}
+
+//------------------------------------------------------------------------------
+bool PgSQLConnection::isConnected()
+{
+  if (!m_pConnection || (PQstatus(m_pConnection) == CONNECTION_BAD))
+  {
+    try
+    {
+      this->Connect();
+    }
+    catch (const Datastore::Exception &)
+    {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+//------------------------------------------------------------------------------
 PgSQLConnection::PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)
   : Provider(_pOwner, _name),
   m_username(_username),
@@ -87,13 +125,13 @@ PgSQLConnection::PgSQLConnection(Module* _pOwner, const Anope::string& _name, co
   m_database(_database),
   m_pConnection(NULL)
 {
-  
+  Connect();
 }
 
 //------------------------------------------------------------------------------
 PgSQLConnection::~PgSQLConnection()
 {
-  
+  Disconnect();
 }
 
 //------------------------------------------------------------------------------

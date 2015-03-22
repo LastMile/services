@@ -43,6 +43,12 @@ class PgSQLConnection : public Provider
   Anope::string m_schema;
 
   PGconn* m_pConnection;
+  
+  void Connect();
+  void Disconnect();
+  
+  bool isConnected();
+  
 
  public:
   PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);

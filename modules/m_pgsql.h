@@ -50,7 +50,9 @@ class PgSQLConnection : public Provider
   
   Anope::string EscapeQuery(const Anope::string& _rawQuery);
   Result Query(const Anope::string& _rawQuery);
-  Anope::string CreateTableQuery(Serializable* _pObject);
+  
+  Anope::string BuildCreateTableQuery(Serializable* _pObject);
+  Anope::string BuildInsertRowQuery(Serializable* _pObject);
   
  public:
   PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port);

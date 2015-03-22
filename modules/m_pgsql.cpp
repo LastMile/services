@@ -136,12 +136,7 @@ Result PgSQLConnection::Query(const Anope::string& _rawQuery)
   if(!isConnected())
     return Result();
   
-  Anope::string escapedQuery= EscapeQuery(_rawQuery);
-  
-  if(escapedQuery.length() < _rawQuery.length())
-    return Result();
-  
-  PGresult* pResult = PQexec(m_pConnection, escapedQuery.c_str());
+  PGresult* pResult = PQexec(m_pConnection, _rawQuery.c_str());
   
   if(pResult)
     Log(LOG_DEBUG) << "PgSQL: ERROR - " << PQresultErrorMessage(pResult);
@@ -150,31 +145,74 @@ Result PgSQLConnection::Query(const Anope::string& _rawQuery)
 }
 
 //------------------------------------------------------------------------------
-Anope::string PgSQLConnection::CreateTableQuery(Serializable* _pObject)
+Anope::string PgSQLConnection::BuildCreateTableQuery(Serializable* _pObject)
 {
   Data serialized_data;
   _pObject->Serialize(serialized_data);
 
-  Anope::string tableQuery = "";
-  tableQuery += "CREATE TABLE IF NOT EXISTS \"";
-  tableQuery += _pObject->GetSerializableType()->GetName();
-  tableQuery += "\" (";
-  tableQuery += "\"id\" serial primary key, ";
+  Anope::string rawQuery = "";
+  rawQuery += "CREATE TABLE IF NOT EXISTS \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\" (";
+  rawQuery += "\"id\" serial primary key, ";
   
   for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
   {
     if(strcmp(it->first.c_str(), "id") == 0)
       continue;
     
-    tableQuery += "\"";
-    tableQuery += it->first;
-    tableQuery += "\" character varying, ";
+    rawQuery += "\"";
+    rawQuery += it->first;
+    rawQuery += "\" character varying, ";
   }
   
-  tableQuery += "\"created_at\" timestamp NOT NULL, \"updated_at\" timestamp NOT NULL);";
+  rawQuery += "\"created_at\" timestamp NOT NULL, \"updated_at\" timestamp NOT NULL); ";
   
-  Log(LOG_DEBUG) << tableQuery;
-  return tableQuery;
+  return rawQuery;
+}
+
+//------------------------------------------------------------------------------
+Anope::string PgSQLConnection::BuildInsertRowQuery(Serializable* _pObject)
+{
+  Data serialized_data;
+  _pObject->Serialize(serialized_data);
+  
+  Anope::string rawQuery = "";
+  rawQuery += "INSERT INTO \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\" (";
+  
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
+  {
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+    
+    rawQuery += "\"";
+    rawQuery += it->first;
+    rawQuery += "\", ";
+  }
+  
+  rawQuery += "\"created_at\", \"updated_at\") VALUES (";
+  
+  
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
+  {
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+
+    Anope::string buffer;
+    *it->second >> buffer;
+    
+    rawQuery += "'";
+    rawQuery += EscapeQuery(buffer);
+    rawQuery += "', ";
+  }
+  
+  rawQuery += "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING \"id\"; ";
+  
+  Log(LOG_DEBUG) << rawQuery;
+  
+  return rawQuery;
 }
 
 //------------------------------------------------------------------------------
@@ -202,50 +240,11 @@ Result PgSQLConnection::Create(Serializable* _pObject) anope_override
   if(_pObject->id != 0)
     return Update(_pObject);
   
-  Result result;
-  Data serialized_data;
-  _pObject->Serialize(serialized_data);
+  return Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
 
-  Anope::string rawQuery = CreateTableQuery(_pObject);
-  rawQuery += "INSERT INTO \"";
-  rawQuery += _pObject->GetSerializableType()->GetName();
-  rawQuery += "\" (";
-  
-  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
-  {
-    if(strcmp(it->first.c_str(), "id") == 0)
-      continue;
-    
-    rawQuery += "\"";
-    rawQuery += it->first;
-    rawQuery += "\", ";
-  }
-  
-  rawQuery += "\"created_at\", \"updated_at\") VALUES (";
-  
-  
-  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
-  {
-    if(strcmp(it->first.c_str(), "id") == 0)
-      continue;
-
-    Anope::string buffer;
-    *it->second >> buffer;
-    
-    rawQuery += "\"";
-    rawQuery += buffer;
-    rawQuery += "\", ";
-  }
-  
-  rawQuery += "current_timestamp, current_timestamp) RETURNING \"id\";";
-
-  
   //_pObject->UpdateTS();
   //m_updatedItems.insert(_pObject);
   //this->Notify();
-  
-  Log(LOG_DEBUG) << rawQuery;
-  return result;
 }
 
 //------------------------------------------------------------------------------

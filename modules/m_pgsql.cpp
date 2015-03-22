@@ -217,6 +217,59 @@ Anope::string PgSQLConnection::BuildInsertRowQuery(Serializable* _pObject)
 }
 
 //------------------------------------------------------------------------------
+Anope::string PgSQLConnection::BuildUpdateRowQuery(Serializable* _pObject)
+{
+  Data serialized_data;
+  _pObject->Serialize(serialized_data);
+  
+  Anope::string rawQuery = "";
+  rawQuery += "UPDATE \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\" SET ";
+  
+  for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
+  {
+    if(strcmp(it->first.c_str(), "id") == 0)
+      continue;
+    
+    Anope::string buffer;
+    *it->second >> buffer;
+    
+    rawQuery += "\"";
+    rawQuery += it->first;
+    rawQuery += "\" = '";
+    rawQuery += EscapeQuery(buffer);
+    rawQuery += "', ";
+  }
+  
+  rawQuery += "\"updated_at\" = CURRENT_TIMESTAMP WHERE \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\".\"id\" = ";
+  rawQuery += stringify(_pObject->id);
+  rawQuery += "; ";
+
+  return rawQuery;
+}
+
+//------------------------------------------------------------------------------
+Anope::string PgSQLConnection::BuildDestroyRowQuery(Serializable* _pObject)
+{
+  Data serialized_data;
+  _pObject->Serialize(serialized_data);
+  
+  Anope::string rawQuery = "";
+  rawQuery += "DELETE FROM \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\" WHERE \"";
+  rawQuery += _pObject->GetSerializableType()->GetName();
+  rawQuery += "\".\"id\" = ";
+  rawQuery += stringify(_pObject->id);
+  rawQuery += "; ";
+
+  return rawQuery;
+}
+
+//------------------------------------------------------------------------------
 PgSQLConnection::PgSQLConnection(Module* _pOwner, const Anope::string& _name, const Anope::string& _database, const Anope::string& _hostname, const Anope::string& _username, const Anope::string& _password, const Anope::string& _port)
   : Provider(_pOwner, _name),
   m_username(_username),
@@ -238,23 +291,21 @@ PgSQLConnection::~PgSQLConnection()
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Create(Serializable* _pObject) anope_override
 {
+  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName();
+  
   if(_pObject->id != 0)
     return Update(_pObject);
   
   return Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
 
   //_pObject->UpdateTS();
-  //m_updatedItems.insert(_pObject);
-  //this->Notify();
 }
 
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Read(Serializable* _pObject) anope_override
 {
   Log(LOG_DEBUG) << "DBSQL::Read";
-  
-  Result result;
-  
+
   //   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
 //   _pObject->UpdateTimestamp();
@@ -332,74 +383,32 @@ Result PgSQLConnection::Read(Serializable* _pObject) anope_override
 //   }
   
   
-  return result;
+  return Result();
 }
 
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Update(Serializable* _pObject) anope_override
 {
+  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  
   if(_pObject->id == 0)
     return Create(_pObject);
-  
-  Result result;
-  
-  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
 
-  if (_pObject->IsTSCached())
-    return result;
+  return Query(BuildUpdateRowQuery(_pObject));
   
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-  {
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << it->second;
-  }
-  
-//   _pObject->UpdateTS();
-//   m_updatedItems.insert(_pObject);
-//   this->Notify();
-
-// DBSQL::Update - BotInfo:0                                                                                                                                                       
-//       created:1426987258                                                                                                                                                        
-//       host:services.lastmile                                                                                                                                                    
-//       nick:ChanServ                                                                                                                                                             
-//       oper_only:0                                                                                                                                                               
-//       realname:Channel Registration Service                                                                                                                                     
-//       user:services    
-  
-  
-//    t.datetime "created_at", null: false
-//    t.datetime "updated_at", null: false
-      
-  return result;
+  // _pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
 Result PgSQLConnection::Destroy(Serializable* _pObject) anope_override
 {
-  Result result;
-  
   Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-  
-  Data data;
-  _pObject->Serialize(data);
-  for (Data::Map::const_iterator it = data.data.begin(), it_end = data.data.end(); it != it_end; ++it)
-  {
-    Anope::string buf;
-    *it->second >> buf;
-    Log(LOG_DEBUG) << "\t" << it->first << ":" << buf;
-  }
 
+  if(_pObject->id == 0)
+    return Result();
+  
+  return Query(BuildDestroyRowQuery(_pObject));
+  
   //  Serialize::Type *s_type = _pObject->GetSerializableType();
-  //  if (s_type)
-  //  {
-  //    if (_pObject->id > 0)
-  //      this->RunQuery("DELETE FROM \"" + s_type->GetName() + "\" WHERE \"id\" = " + stringify(_pObject->id));
-
-  //    s_type->objects.erase(_pObject->id);
-  //  }
-  //  m_updatedItems.erase(_pObject);
-  
-  
-  return result;
+  //   s_type->objects.erase(_pObject->id);
 }

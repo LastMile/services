@@ -300,10 +300,11 @@ void PgSQLConnection::Create(Serializable* _pObject) anope_override
   if(pResult == NULL)
     return;
   
-  _pObject->id = *((int*)PQgetvalue(pResult, 0, 0));
-  
-  Log(LOG_DEBUG) << "PGSQL::Create - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
-   
+  if(PQbinaryTuples(pResult))
+    _pObject->id = ntohl(*(int*)PQgetvalue(pResult, 0, 0));
+  else
+    _pObject->id = atoi(PQgetvalue(pResult, 0, 0));
+
   PQclear(pResult);
 }
 

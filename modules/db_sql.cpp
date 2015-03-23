@@ -46,16 +46,21 @@ void DBSQL::OnNotify() anope_override
 
   for (std::map<Serializable*, EACTION>::iterator it = m_changeList.begin(); it != m_changeList.end(); ++it)
   {
-    switch(it->second)
+    Serializable* _pObject = it->first;
+    EACTION action = it->second;
+    
+    switch(action)
     {
     case CREATE:
-      m_hDatabaseConnection->Create(it->first);
+      m_hDatabaseConnection->Create(_pObject);
       break;
       
     case UPDATE:
-      m_hDatabaseConnection->Update(it->first);
+      m_hDatabaseConnection->Update(_pObject);
       break;
     }
+    
+    _pObject->UpdateTS();
   }
   
   m_changeList.clear();
@@ -114,8 +119,6 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
 
   m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, CREATE));
   Notify();
-  
-  //_pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
@@ -125,6 +128,7 @@ void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
     return;
   
   m_hDatabaseConnection->Read(NULL);
+  //_pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
@@ -135,8 +139,6 @@ void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
   
   m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, UPDATE));
   Notify();
-  
-  // _pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------
@@ -148,7 +150,6 @@ void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
   m_changeList.erase(_pObject);
   m_hDatabaseConnection->Destroy(_pObject);
   
-  //  Serialize::Type *s_type = _pObject->GetSerializableType();
-  //   s_type->objects.erase(_pObject->id);
+  _pObject->GetSerializableType()->objects.erase(_pObject->id);
 }
 

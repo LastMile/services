@@ -49,7 +49,7 @@ class PgSQLConnection : public Provider
   void Disconnect();
   bool isConnected();
   
-  void Query(const Anope::string& _rawQuery);
+  PGresult* Query(const Anope::string& _rawQuery);
   
   Anope::string EscapeString(const Anope::string& _rawQuery);
   Anope::string BuildCreateTableQuery(Serializable* _pObject);

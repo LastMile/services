@@ -108,7 +108,7 @@ bool PgSQLConnection::isConnected()
     }
     catch (const Datastore::Exception &)
     {
-      Log(LOG_DEBUG) << "PgSQL: " << PQerrorMessage(m_pConnection);
+      Log(LOG_NORMAL, "pgsql") << "PGSQL: " << PQerrorMessage(m_pConnection);
       return false;
     }
   }
@@ -117,34 +117,31 @@ bool PgSQLConnection::isConnected()
 }
 
 //------------------------------------------------------------------------------
-void PgSQLConnection::Query(const Anope::string& _rawQuery)
+PGresult* PgSQLConnection::Query(const Anope::string& _rawQuery)
 {
   if(!isConnected())
-    return;
+    return NULL;
   
   PGresult* pResult = PQexec(m_pConnection, _rawQuery.c_str());
   
   if(pResult)
-    Log(LOG_DEBUG) << "PgSQL: " << PQresultErrorMessage(pResult);
+    Log(LOG_DEBUG) << "PGSQL: " << PQresultErrorMessage(pResult);
 
-  return;
+  return pResult;
 }
 
 //------------------------------------------------------------------------------
 Anope::string PgSQLConnection::EscapeString(const Anope::string& _rawQuery)
 {
-  char* pEscapedBuffer = new char[_rawQuery.length() * 2 + 1]();
+  std::vector<char> escapedBuffer(_rawQuery.length() * 2 + 1);
   int error;
-  
-  PQescapeStringConn(m_pConnection, pEscapedBuffer, _rawQuery.c_str(), _rawQuery.length(), &error);
+
+  PQescapeStringConn(m_pConnection, &escapedBuffer[0], _rawQuery.c_str(), _rawQuery.length(), &error);
   
   if (error)
-    Log(LOG_DEBUG) << "PgSQL: " << PQerrorMessage(m_pConnection);
+    Log(LOG_DEBUG) << "PGSQL: " << PQerrorMessage(m_pConnection);
 
-  Anope::string escapedQuery(pEscapedBuffer);
-  delete[] pEscapedBuffer;
-  
-  return escapedQuery;
+  return Anope::string(&escapedBuffer[0]);
 }
 
 //------------------------------------------------------------------------------
@@ -296,15 +293,24 @@ void PgSQLConnection::Create(Serializable* _pObject) anope_override
   if(_pObject->id != 0)
     return Update(_pObject);
   
-  Log(LOG_DEBUG) << "DBSQL::Create - " << _pObject->GetSerializableType()->GetName();
+  Log(LOG_DEBUG) << "PGSQL::Create - " << _pObject->GetSerializableType()->GetName();
   
-  return Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
+  PGresult* pResult = Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
+  
+  if(pResult == NULL)
+    return;
+  
+  _pObject->id = *((int*)PQgetvalue(pResult, 0, 0));
+  
+  Log(LOG_DEBUG) << "PGSQL::Create - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+   
+  PQclear(pResult);
 }
 
 //------------------------------------------------------------------------------
 void PgSQLConnection::Read(Serializable* _pObject) anope_override
 {
-  Log(LOG_DEBUG) << "DBSQL::Read";
+  Log(LOG_DEBUG) << "PGSQL::Read";
 
   //   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
@@ -381,9 +387,6 @@ void PgSQLConnection::Read(Serializable* _pObject) anope_override
 //     query = "DELETE FROM \"" + _pObject->GetName() + "\" WHERE \"timestamp\" IS NULL";
 //     this->RunQuery(query);
 //   }
-  
-  
-  return;
 }
 
 //------------------------------------------------------------------------------
@@ -392,9 +395,14 @@ void PgSQLConnection::Update(Serializable* _pObject) anope_override
   if(_pObject->id == 0)
     return Create(_pObject);
   
-  Log(LOG_DEBUG) << "DBSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "PGSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
 
-  return Query(BuildUpdateRowQuery(_pObject));
+  PGresult* pResult = Query(BuildUpdateRowQuery(_pObject));
+  
+  if(pResult == NULL)
+    return;
+  
+  PQclear(pResult);
 }
 
 //------------------------------------------------------------------------------
@@ -403,7 +411,12 @@ void PgSQLConnection::Destroy(Serializable* _pObject) anope_override
   if(_pObject->id == 0)
     return;
   
-  Log(LOG_DEBUG) << "DBSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "PGSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
-  return Query(BuildDestroyRowQuery(_pObject));
+  PGresult* pResult = Query(BuildDestroyRowQuery(_pObject));
+  
+  if(pResult == NULL)
+    return;
+  
+  PQclear(pResult);
 }

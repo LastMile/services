@@ -158,12 +158,27 @@ Anope::string PgSQLConnection::BuildCreateTableQuery(Serializable* _pObject)
   
   for (Data::Map::const_iterator it = serialized_data.data.begin(), it_end = serialized_data.data.end(); it != it_end; ++it)
   {
+    const char* pAttribute = it->first.c_str();
+    Data::Type eType = serialized_data.GetType(pAttribute);
+    
     if(strcmp(it->first.c_str(), "id") == 0)
       continue;
     
     rawQuery += "\"";
     rawQuery += it->first;
-    rawQuery += "\" character varying, ";
+    rawQuery += "\"" ;
+    
+    switch(eType)
+    {
+    case Data::DT_TEXT:
+      rawQuery += "character varying";
+      break;
+    case Data::DT_INT:
+      rawQuery += "integer";
+      break;
+    }
+    
+    rawQuery += ", ";
   }
   
   rawQuery += "\"created_at\" timestamp NOT NULL, \"updated_at\" timestamp NOT NULL); ";
@@ -309,13 +324,11 @@ void PgSQLConnection::Create(Serializable* _pObject) anope_override
 }
 
 //------------------------------------------------------------------------------
-void PgSQLConnection::Read(Serializable* _pObject) anope_override
+void PgSQLConnection::Read(Serialize::Type* _pType) anope_override
 {
-  Log(LOG_DEBUG) << "PGSQL::Read - " << _pObject->GetSerializableType()->GetName();// << ":" << stringify(_pObject->id);
+  Log(LOG_DEBUG) << "PGSQL::Read - " << _pType->GetName();
 
   //   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
-
-//   _pObject->UpdateTimestamp();
 
 //   Result res = this->RunQuery(query);
 

@@ -47,9 +47,9 @@ void DBSQL::OnNotify() anope_override
   for (std::map<Serializable*, EACTION>::iterator it = m_changeList.begin(); it != m_changeList.end(); ++it)
   {
     Serializable* _pObject = it->first;
-    EACTION action = it->second;
+    EACTION eAction = it->second;
     
-    switch(action)
+    switch(eAction)
     {
     case CREATE:
       m_hDatabaseConnection->Create(_pObject);
@@ -122,13 +122,13 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
 }
 
 //------------------------------------------------------------------------------
-void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
+void DBSQL::OnSerializeCheck(Serialize::Type* _pType) anope_override
 {
   if (!this->isConnectionReady())
     return;
   
-  m_hDatabaseConnection->Read(_pObject);
-  _pObject->UpdateTS();
+  m_hDatabaseConnection->Read(_pType);
+  _pType->UpdateTimestamp();
 }
 
 //------------------------------------------------------------------------------

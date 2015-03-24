@@ -29,7 +29,7 @@ class DBSQL : public Module, public Pipe
   void OnNotify() anope_override;
 
   void OnSerializableConstruct(Serializable* _pObject) anope_override;
-  void OnSerializeCheck(Serialize::Type* _pObject) anope_override;
+  void OnSerializeCheck(Serialize::Type* _pType) anope_override;
   void OnSerializableUpdate(Serializable* _pObject) anope_override;
   void OnSerializableDestruct(Serializable* _pObject) anope_override;
 };

@@ -62,7 +62,7 @@ class PgSQLConnection : public Provider
   ~PgSQLConnection();
 
   void Create(Serializable* _pObject) anope_override;
-  void Read(Serializable* _pObject) anope_override;
+  void Read(Serialize::Type* _pType) anope_override;
   void Update(Serializable* _pObject) anope_override;
   void Destroy(Serializable* _pObject) anope_override;
 };

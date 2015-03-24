@@ -311,7 +311,7 @@ void PgSQLConnection::Create(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 void PgSQLConnection::Read(Serializable* _pObject) anope_override
 {
-  Log(LOG_DEBUG) << "PGSQL::Read";
+  Log(LOG_DEBUG) << "PGSQL::Read - " << _pObject->GetSerializableType()->GetName();// << ":" << stringify(_pObject->id);
 
   //   Query query("SELECT * FROM \"" + _pObject->GetName() + "\" WHERE (\"timestamp\" >= " + m_hDatabaseConnection->FromUnixtime(_pObject->GetTimestamp()) + " OR \"timestamp\" IS NULL)");
 
@@ -388,6 +388,8 @@ void PgSQLConnection::Read(Serializable* _pObject) anope_override
 //     query = "DELETE FROM \"" + _pObject->GetName() + "\" WHERE \"timestamp\" IS NULL";
 //     this->RunQuery(query);
 //   }
+
+  //PQclear(pResult);
 }
 
 //------------------------------------------------------------------------------

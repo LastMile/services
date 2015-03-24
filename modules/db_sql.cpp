@@ -127,8 +127,8 @@ void DBSQL::OnSerializeCheck(Serialize::Type* _pObject) anope_override
   if (!this->isConnectionReady())
     return;
   
-  m_hDatabaseConnection->Read(NULL);
-  //_pObject->UpdateTS();
+  m_hDatabaseConnection->Read(_pObject);
+  _pObject->UpdateTS();
 }
 
 //------------------------------------------------------------------------------

@@ -53,6 +53,7 @@ void DBSQL::OnNotify() anope_override
     {
     case CREATE:
       m_hDatabaseConnection->Create(_pObject);
+      _pObject->GetSerializableType()->objects[_pObject->id] = _pObject;
       break;
       
     case UPDATE:
@@ -69,20 +70,6 @@ void DBSQL::OnNotify() anope_override
 //       continue;
 
 //     pObject->UpdateCache(data);
-
-//     Serialize::Type *s_type = pObject->GetSerializableType();
-
-//     if (!s_type)
-//       continue;
-
-//     if (res.GetID() && pObject->id != res.GetID())
-//     {
-//       /* In this case object is new, so place it into the object map */
-//       pObject->id = res.GetID();
-//       s_type->objects[pObject->id] = pObject;
-//     }
-//   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -116,6 +103,9 @@ void DBSQL::OnSerializableConstruct(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady())
     return;
+  
+  if(_pObject->id != 0)
+    return OnSerializableUpdate(_pObject);
 
   m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, CREATE));
   Notify();
@@ -137,6 +127,9 @@ void DBSQL::OnSerializableUpdate(Serializable* _pObject) anope_override
   if (!this->isConnectionReady())
     return;
   
+  if(_pObject->id == 0)
+    return OnSerializableConstruct(_pObject);
+  
   m_changeList.insert(std::pair<Serializable*, EACTION>(_pObject, UPDATE));
   Notify();
 }
@@ -146,10 +139,11 @@ void DBSQL::OnSerializableDestruct(Serializable* _pObject) anope_override
 {
   if (!this->isConnectionReady())
     return;
+  
+  if(_pObject->id != 0)
+    m_hDatabaseConnection->Destroy(_pObject);
 
   m_changeList.erase(_pObject);
-  m_hDatabaseConnection->Destroy(_pObject);
-  
   _pObject->GetSerializableType()->objects.erase(_pObject->id);
 }
 

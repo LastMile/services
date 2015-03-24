@@ -304,10 +304,7 @@ PgSQLConnection::~PgSQLConnection()
 
 //------------------------------------------------------------------------------
 void PgSQLConnection::Create(Serializable* _pObject) anope_override
-{
-  if(_pObject->id != 0)
-    return Update(_pObject);
-  
+{  
   Log(LOG_DEBUG) << "PGSQL::Create - " << _pObject->GetSerializableType()->GetName();
   
   PGresult* pResult = Query(BuildCreateTableQuery(_pObject) + BuildInsertRowQuery(_pObject));
@@ -408,9 +405,6 @@ void PgSQLConnection::Read(Serialize::Type* _pType) anope_override
 //------------------------------------------------------------------------------
 void PgSQLConnection::Update(Serializable* _pObject) anope_override
 {
-  if(_pObject->id == 0)
-    return Create(_pObject);
-  
   Log(LOG_DEBUG) << "PGSQL::Update - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
 
   PGresult* pResult = Query(BuildUpdateRowQuery(_pObject));
@@ -424,9 +418,6 @@ void PgSQLConnection::Update(Serializable* _pObject) anope_override
 //------------------------------------------------------------------------------
 void PgSQLConnection::Destroy(Serializable* _pObject) anope_override
 {
-  if(_pObject->id == 0)
-    return;
-  
   Log(LOG_DEBUG) << "PGSQL::Destroy - " << _pObject->GetSerializableType()->GetName() << ":" << stringify(_pObject->id);
   
   PGresult* pResult = Query(BuildDestroyRowQuery(_pObject));
